@@ -9,7 +9,7 @@ import SimCoreContract
 let usage = """
 usage:
   navdb-cli convert --cifp <FAACIFP18> --out <navdb.sqlite> [--report <report.json>] [--min-runway <ft>]
-  navdb-cli verify --cifp <FAACIFP18> --db <navdb.sqlite> [--report <verify.json>] [--sample <N>]
+  navdb-cli verify --cifp <FAACIFP18> --db <navdb.sqlite> [--report <verify.json>] [--sample <N>] [--min-runway <ft>]
   navdb-cli bench --db <navdb.sqlite> [--radius <NM>] [--repeat <N>] [--out <report.json>] [--max-p99-ms <ms>]
   navdb-cli manifest --db <navdb.sqlite> --url <file URL in the manifest> --out <manifest.json> [--notices <notices.json>]
   navdb-cli extract-sample --cifp <FAACIFP18> --airports <K1,K2,...> --out <sample file>
@@ -87,13 +87,14 @@ func verify(_ arguments: Arguments) throws -> Int32 {
     let reader = try NavDatabaseReader(path: arguments.required("db"))
     try reader.checkIntegrity()
     let report = try NavDBVerifier.verify(cifp: read(arguments.required("cifp")), database: reader,
-                                          sampleSize: try arguments.number("sample", default: 20))
+                                          sampleSize: try arguments.number("sample", default: 20),
+                                          minimumRunwayFt: try arguments.number("min-runway", default: 5000))
     if let path = arguments.options["report"] {
         try writeJSON(report, to: path)
     }
     print(report.summary)
     if !report.passed {
-        let problems = report.routeMismatches.prefix(20) + report.valueMismatches.prefix(20)
+        let problems = report.airportMismatches.prefix(20) + report.routeMismatches.prefix(20) + report.valueMismatches.prefix(20)
         print("first problems:\n  " + problems.joined(separator: "\n  "))
     }
     return report.passed ? 0 : 1

@@ -15,6 +15,10 @@ public struct VerifyReport: Sendable, Codable, Equatable {
     public var cycle: String
     /// Airports in the database.
     public var airports: Int
+    /// Airports that pass the filter when the check applies it to the source file.
+    public var sourceAirports: Int
+    /// Airports that are in the database but not expected, or expected but not in the database.
+    public var airportMismatches: [String]
     /// Procedures of these airports in the source file, by kind.
     public var sourceProcedures: [String: Int]
     /// Procedures in the database, by kind.
@@ -32,12 +36,13 @@ public struct VerifyReport: Sendable, Codable, Equatable {
     public var valueMismatches: [String]
 
     public var passed: Bool {
-        routeMismatches.isEmpty && valueMismatches.isEmpty && sourceLegs == databaseLegs
+        airportMismatches.isEmpty && routeMismatches.isEmpty && valueMismatches.isEmpty && sourceLegs == databaseLegs
             && sourceProcedures == databaseProcedures && sourceILSApproaches == databaseILSApproaches
     }
 
     public var summary: String {
-        var lines = ["AIRAC \(cycle): \(airports) airports"]
+        var lines = ["AIRAC \(cycle): \(airports) airports in the database, \(sourceAirports) expected by the filter",
+                     "airport mismatches: \(airportMismatches.count)"]
         for kind in sourceProcedures.keys.sorted() {
             lines.append("  \(kind): source \(sourceProcedures[kind]!), database \(databaseProcedures[kind] ?? 0)")
         }
@@ -58,13 +63,25 @@ public struct VerifyReport: Sendable, Codable, Equatable {
 /// The check reads the source file with its own code (fixed columns of ARINC 424-18), not with the parser
 /// of the converter. Thus an error in the parser is not hidden by the same error in the check.
 /// The database is read through `NavDatabaseReader`, as the core reads it.
+/// The list of airports also comes from the source file (the filter is applied again by this code),
+/// so an airport that the converter lost is found.
 public enum NavDBVerifier {
-    public static func verify(cifp data: Data, database: NavDatabaseReader, sampleSize: Int = 20) throws(NavDataError) -> VerifyReport {
+    public static func verify(cifp data: Data, database: NavDatabaseReader, sampleSize: Int = 20,
+                              minimumRunwayFt: Int = 5000) throws(NavDataError) -> VerifyReport {
         let lines = rawLines(data)
-        let airports = try database.query { db throws(SQLiteError) in
+        let databaseAirports = try database.query { db throws(SQLiteError) in
             try db.rows("SELECT ident FROM fix WHERE kind = 'airport' ORDER BY ident") { $0.text(0) }
         }
-        let kept = Set(airports)
+        let expected = expectedAirports(lines, minimumRunwayFt: minimumRunwayFt)
+        var airportMismatches: [String] = []
+        for ident in expected.subtracting(databaseAirports).sorted() {
+            airportMismatches.append("\(ident): passes the filter, not in the database")
+        }
+        for ident in Set(databaseAirports).subtracting(expected).sorted() {
+            airportMismatches.append("\(ident): in the database, does not pass the filter")
+        }
+        let airports = databaseAirports.filter(expected.contains)
+        let kept = expected
 
         // Routes of the source file: airport|kind|procedure|route type|transition → number of legs.
         var sourceRoutes: [String: Int] = [:]
@@ -173,7 +190,9 @@ public enum NavDBVerifier {
 
         return VerifyReport(
             cycle: database.info.cycle.ident,
-            airports: airports.count,
+            airports: databaseAirports.count,
+            sourceAirports: expected.count,
+            airportMismatches: airportMismatches,
             sourceProcedures: sourceProcedures.mapValues(\.count),
             databaseProcedures: databaseProcedures,
             sourceILSApproaches: sourceILS.count,
@@ -184,6 +203,30 @@ public enum NavDBVerifier {
             sample: checks,
             valueMismatches: valueMismatches
         )
+    }
+
+    /// The airport filter (`AirportFilter`) on the raw columns: surface `H` in the airport record (column 32),
+    /// and an ILS of category 1, 2 or 3 (PI column 18) on a runway (PI columns 28-32) of `minimumRunwayFt` or more
+    /// (PG columns 23-27).
+    static func expectedAirports(_ lines: [[UInt8]], minimumRunwayFt: Int) -> Set<String> {
+        var hard = Set<String>()
+        var lengths: [String: Int] = [:]
+        var ils: [(airport: String, runway: String)] = []
+        for line in lines where line.count == 132 && char(line, 5) == "P" && char(line, 6) == " "
+            && (char(line, 22) == "0" || char(line, 22) == "1") {
+            let airport = text(line, 7...10)
+            switch char(line, 13) {
+            case "A": if char(line, 32) == "H" { hard.insert(airport) }
+            case "G": lengths[airport + "|" + text(line, 14...18)] = Int(text(line, 23...27)) ?? 0
+            case "I": if "123".contains(char(line, 18)) { ils.append((airport, text(line, 28...32))) }
+            default: break
+            }
+        }
+        var result = Set<String>()
+        for item in ils where hard.contains(item.airport) && (lengths[item.airport + "|" + item.runway] ?? 0) >= minimumRunwayFt {
+            result.insert(item.airport)
+        }
+        return result
     }
 
     /// `count` items at equal steps through the list, the first and the last included.

@@ -1,6 +1,7 @@
 import Foundation
 import Kernel
 import NavDB
+import NavDBBuilder
 import SimCoreContract
 import Testing
 @testable import NavDBUpdate
@@ -194,6 +195,42 @@ import Testing
 
     // Without any database the store throws.
     #expect(throws: NavDataError.self) { try NavDBStore(bundledPath: nil, directory: temporaryDirectory()).openActive() }
+}
+
+@Test func bundledDatabaseFromANewerConverterReplacesTheDownload() throws {
+    let databases = SampleDatabases.shared
+    // The downloaded 2611 was made by an older converter. The new release bundles 2611 from the current one.
+    let directory = temporaryDirectory()
+    let downloaded = directory.appendingPathComponent("navdb.sqlite")
+    try FileManager.default.copyItem(atPath: databases.cycle2611, toPath: downloaded.path)
+    try SQLiteDatabase(path: downloaded.path, mode: .readWriteCreate)
+        .execute("UPDATE meta SET value = '\(NavDBBuilder.version - 1)' WHERE key = 'builder_version'")
+    let store = NavDBStore(bundledPath: databases.cycle2611, directory: directory)
+    let active = try store.openActive()
+    #expect(active.source == .bundled)
+    #expect(active.reader.info.builderVersion == NavDBBuilder.version)
+    #expect(active.rejected.count == 1)
+
+    // A correction of the same cycle from the same converter (another source file) is kept.
+    try FileManager.default.removeItem(at: downloaded)
+    try FileManager.default.copyItem(atPath: databases.cycle2611, toPath: downloaded.path)
+    try SQLiteDatabase(path: downloaded.path, mode: .readWriteCreate)
+        .execute("UPDATE meta SET value = '\(String(repeating: "c", count: 64))' WHERE key = 'source_sha256'")
+    #expect(try store.openActive().source == .downloaded)
+}
+
+@Test func bundledReplacesRule() {
+    let a = NavDataIdentity(cycle: AIRACCycle(ident: "2611")!, schemaVersion: 2, builderVersion: 2, sourceSHA256: String(repeating: "a", count: 64))
+    var b = a
+    #expect(!NavDBStore.bundledReplaces(b, downloaded: a))
+    b.sourceSHA256 = String(repeating: "b", count: 64)
+    #expect(!NavDBStore.bundledReplaces(b, downloaded: a))
+    b.builderVersion = 3
+    #expect(NavDBStore.bundledReplaces(b, downloaded: a))
+    b = a
+    b.cycle = AIRACCycle(ident: "2612")!
+    #expect(NavDBStore.bundledReplaces(b, downloaded: a))
+    #expect(!NavDBStore.bundledReplaces(a, downloaded: b))
 }
 
 @Test func newerIdentity() {

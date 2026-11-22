@@ -5,7 +5,9 @@ import Foundation
 /// Increase `version` after each change of the tables. The reader rejects a file with another version.
 /// The application then uses the database from the application bundle until a file with the new version is loaded.
 public enum NavDBSchema {
-    public static let version = 1
+    ///
+    /// History: 1 — first version. 2 — `airway_fix.area`.
+    public static let version = 2
 
     /// Keys of the table `meta`.
     public enum MetaKey: String, CaseIterable {
@@ -114,6 +116,7 @@ public enum NavDBSchema {
 
     CREATE TABLE airway_fix (
         id INTEGER PRIMARY KEY,
+        area TEXT NOT NULL,            -- ARINC 424 area code: USA, CAN, PAC, LAM
         route TEXT NOT NULL,
         seq INTEGER NOT NULL,
         fix_ident TEXT NOT NULL,
@@ -133,7 +136,7 @@ public enum NavDBSchema {
         max_altitude_ft INTEGER,
         source_line INTEGER NOT NULL
     );
-    CREATE INDEX airway_fix_route ON airway_fix(route, seq);
+    CREATE INDEX airway_fix_route ON airway_fix(route, area, seq);
 
     CREATE TABLE procedure (
         id INTEGER PRIMARY KEY,

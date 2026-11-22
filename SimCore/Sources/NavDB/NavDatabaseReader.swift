@@ -257,18 +257,19 @@ public final class NavDatabaseReader: NavDatabase {
     public func airway(_ route: String) throws(NavDataError) -> [NavAirwayFix] {
         try query { db throws(SQLiteError) in
             try db.rows("""
-                SELECT w.route, w.seq, w.fix_ident, w.fix_region, w.fix_code, \(Self.fixColumns("f")),
+                SELECT w.area, w.route, w.seq, w.fix_ident, w.fix_region, w.fix_code, \(Self.fixColumns("f")),
                        w.description, w.route_type, w.level, w.direction, w.outbound_course_deg, w.outbound_course_true,
                        w.inbound_course_deg, w.inbound_course_true, w.distance_nm, w.min_altitude_ft, w.max_altitude_ft
                 FROM airway_fix w LEFT JOIN fix f ON f.id = w.fix_id
                 WHERE w.route = ?
-                ORDER BY w.seq, w.id
+                ORDER BY w.area, w.seq, w.id
                 """, [.text(route)]) { s in
                 var r = RowReader(s)
+                let area = r.text()
                 let routeName = r.text()
                 let sequence = r.int()
                 let fix = r.fixRef() ?? NavFixRef(ident: "", region: "", code: "", fix: nil)
-                return NavAirwayFix(route: routeName, sequence: sequence, fix: fix, descriptionCode: r.text(),
+                return NavAirwayFix(area: area, route: routeName, sequence: sequence, fix: fix, descriptionCode: r.text(),
                                     routeType: r.text(), level: r.text(), directionRestriction: r.text(),
                                     outboundCourse: r.optionalCourse(), inboundCourse: r.optionalCourse(),
                                     distanceNM: r.optionalDouble(), minimumAltitudeFt: r.optionalInt(),

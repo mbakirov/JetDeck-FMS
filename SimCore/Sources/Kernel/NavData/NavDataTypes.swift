@@ -238,6 +238,9 @@ public struct NavWaypoint: Sendable, Equatable {
 
 /// One fix of an en route airway.
 public struct NavAirwayFix: Sendable, Equatable {
+    /// ARINC 424 area code, for example `USA` or `CAN`. Two airways with the same name in different areas
+    /// are different airways.
+    public var area: String
     public var route: String
     public var sequence: Int
     public var fix: NavFixRef
@@ -253,9 +256,10 @@ public struct NavAirwayFix: Sendable, Equatable {
     public var minimumAltitudeFt: Int?
     public var maximumAltitudeFt: Int?
 
-    public init(route: String, sequence: Int, fix: NavFixRef, descriptionCode: String, routeType: String, level: String,
+    public init(area: String, route: String, sequence: Int, fix: NavFixRef, descriptionCode: String, routeType: String, level: String,
                 directionRestriction: String, outboundCourse: NavCourse?, inboundCourse: NavCourse?, distanceNM: Double?,
                 minimumAltitudeFt: Int?, maximumAltitudeFt: Int?) {
+        self.area = area
         self.route = route
         self.sequence = sequence
         self.fix = fix

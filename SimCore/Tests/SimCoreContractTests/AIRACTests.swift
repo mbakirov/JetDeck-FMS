@@ -34,6 +34,10 @@ import Testing
     #expect(AIRACCycle(ident: "2114") == nil)
     #expect(AIRACCycle(ident: "2600") == nil)
     #expect(AIRACCycle(ident: "26AB") == nil)
+    #expect(AIRACCycle(ident: "+611") == nil)
+    #expect(AIRACCycle(ident: "-611") == nil)
+    #expect(AIRACCycle(ident: " 611") == nil)
+    #expect(AIRACCycle(ident: "２６１１") == nil)
     #expect(AIRACCycle(ident: "2601")! < cycle)
 }
 

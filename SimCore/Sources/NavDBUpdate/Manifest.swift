@@ -34,8 +34,8 @@ public enum NavDBUpdateError: Error, Sendable, Equatable, LocalizedError {
 /// The manifest of a published database. The CI job writes it next to the database file.
 ///
 /// ```json
-/// {"format":1,"schemaVersion":1,"builderVersion":1,"cycle":"2611","effective":"2026-10-29","lastDay":"2026-11-25",
-///  "url":"navdb-2611.sqlite","sizeBytes":21970944,"sha256":"…","sourceSHA256":"…","notices":[]}
+/// {"format":1,"schemaVersion":2,"builderVersion":2,"cycle":"2611","effective":"2026-10-29","lastDay":"2026-11-25",
+///  "url":"navdb-2611.sqlite","sizeBytes":22126592,"sha256":"…","sourceSHA256":"…","notices":[]}
 /// ```
 public struct NavDBManifest: Sendable, Codable, Equatable {
     /// Version of this manifest format.

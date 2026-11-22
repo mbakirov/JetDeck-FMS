@@ -100,6 +100,7 @@ public struct RunwayRecord: Sendable, Equatable {
     /// Category of this localizer (`0`, `1`, `2`, `3`, `I`, `L`, `A`, `S`, `F`).
     public var localizerCategory: Character?
     public var secondLocalizer: String?
+    public var secondLocalizerCategory: Character?
     public var description: String?
 
     public init(_ line: ARINC424Line) throws(ARINC424Error) {
@@ -116,7 +117,9 @@ public struct RunwayRecord: Sendable, Equatable {
         widthFt = try line.integer("runway width", 78...80)
         localizer = line.optionalText(82...85)
         localizerCategory = line.isBlank(86...86) ? nil : line.character(86)
-        secondLocalizer = line.optionalText(89...92)
+        // Columns 87-90 are the stopway.
+        secondLocalizer = line.optionalText(91...94)
+        secondLocalizerCategory = line.isBlank(95...95) ? nil : line.character(95)
         description = line.optionalText(102...123)
         // A water runway can have an identifier without the prefix RW, for example `E` or `W`.
         guard !ident.isEmpty else { throw line.error("runway identifier", 14...18, "the identifier is blank") }
@@ -296,6 +299,8 @@ public struct WaypointRecord: Sendable, Equatable {
 /// One fix of an en route airway (section E, subsection R).
 public struct AirwayFixRecord: Sendable, Equatable {
     public var line: Int
+    /// Customer or area code, for example `USA`, `CAN`. Airways in different areas can have the same name.
+    public var area: String
     public var route: String
     public var sequence: Int
     public var fix: FixReference
@@ -316,6 +321,7 @@ public struct AirwayFixRecord: Sendable, Equatable {
 
     public init(_ line: ARINC424Line) throws(ARINC424Error) {
         self.line = line.number
+        area = line.text(2...4)
         route = line.text(14...18)
         sequence = try line.requiredInteger("sequence number", 26...29)
         guard let fix = FixReference.read(line, ident: 30...34, region: 35...36, section: 37, subsection: 38) else {

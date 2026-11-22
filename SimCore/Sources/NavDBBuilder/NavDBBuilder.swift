@@ -27,7 +27,9 @@ public enum BuildError: Error, Sendable, CustomStringConvertible {
 /// and the database has no time of conversion.
 public enum NavDBBuilder {
     /// Increase after each change of the conversion that can change the content of the database.
-    public static let version = 1
+    ///
+    /// History: 1 — first version. 2 — second localizer of a runway from columns 91-94; area of airways.
+    public static let version = 2
 
     /// Number of errors and references that the report lists in full.
     static let listLimit = 200
@@ -151,11 +153,11 @@ public enum NavDBBuilder {
         for fix in plan.airwayFixes {
             let r = fix.record
             try db.run("""
-                INSERT INTO airway_fix (route, seq, fix_ident, fix_region, fix_code, fix_id, description, route_type, level,
+                INSERT INTO airway_fix (area, route, seq, fix_ident, fix_region, fix_code, fix_id, description, route_type, level,
                     direction, outbound_course_deg, outbound_course_true, inbound_course_deg, inbound_course_true,
                     distance_nm, min_altitude_ft, max_altitude_ft, source_line)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, [.text(r.route), .integer(Int64(r.sequence)), .text(r.fix.ident), .text(r.fix.region), .text(r.fix.code),
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [.text(r.area), .text(r.route), .integer(Int64(r.sequence)), .text(r.fix.ident), .text(r.fix.region), .text(r.fix.code),
                       SQLiteValue(fix.fixID), .text(r.descriptionCode), .text(String(r.routeType)), .text(trim(r.level)),
                       .text(trim(r.directionRestriction)), SQLiteValue(r.outboundCourse?.degrees),
                       SQLiteValue(r.outboundCourse.map { $0.isTrue }.map { $0 ? 1 : 0 } as Int?),

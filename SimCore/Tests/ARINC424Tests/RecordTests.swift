@@ -6,6 +6,7 @@ import Testing
 enum Lines {
     static let airportJFK = "SUSAP KJFKK6AJFK     0     145YHN40382374W073464329W013000013         1800018000C    MNAR    JOHN F KENNEDY INTL           303911912"
     static let runway04L = "SUSAP KJFKK6GRW04L   0120790440 N40372318W073470505         -0028300012046057200IIHIQ1                                     308521709"
+    static let runwayTwoLocalizers = "SUSAP KDCAK6GRW19    0071691860 N38514029W077021941         -0028400012000050150RIASOA    IVWHA                            657202014"
     static let runwayNoBearing = "SUSAP 13FDK7GNW      017302     N27573597W081301408               00060000050300D                                          828172108"
     static let waterRunway = "SCANP 5KE PAGE       0038930938 N55204915W131401567               00000000050999D                                          050851703"
     static let ilsIHIQ = "SUSAP KJFKK6IIHIQ1   011090RW04LN40390697W0734543940438N40373109W0734654890605 10890328300W01305700010                     308602308"
@@ -29,7 +30,7 @@ enum Lines {
 }
 
 @Test func allTestLinesHave132Columns() {
-    for text in [Lines.airportJFK, Lines.runway04L, Lines.runwayNoBearing, Lines.waterRunway, Lines.ilsIHIQ, Lines.vorJFK,
+    for text in [Lines.airportJFK, Lines.runway04L, Lines.runwayTwoLocalizers, Lines.runwayNoBearing, Lines.waterRunway, Lines.ilsIHIQ, Lines.vorJFK,
                  Lines.dmeAAT, Lines.ndbDDP, Lines.terminalNDB, Lines.enrouteWaypoint, Lines.terminalWaypoint, Lines.airway,
                  Lines.legCF, Lines.legRunway, Lines.legHold, Lines.legRF, Lines.legContinuation, Lines.airspace] {
         #expect(text.utf8.count == 132, "\(text.prefix(20))")
@@ -86,6 +87,16 @@ enum Lines {
     #expect(r.widthFt == 200)
     #expect(r.localizer == "IHIQ")
     #expect(r.localizerCategory == "1")
+}
+
+@Test func runwayWithTwoLocalizers() throws {
+    // KDCA RW19: LDA IASO (category A) and LDA IVWH (category A). Columns 87-90 are the stopway.
+    let r = try RunwayRecord(Lines.line(Lines.runwayTwoLocalizers))
+    #expect(r.localizer == "IASO")
+    #expect(r.localizerCategory == "A")
+    #expect(r.secondLocalizer == "IVWH")
+    #expect(r.secondLocalizerCategory == "A")
+    #expect(try RunwayRecord(Lines.line(Lines.runway04L)).secondLocalizer == nil)
 }
 
 @Test func runwayWithoutBearingAndWaterRunway() throws {
@@ -166,6 +177,7 @@ enum Lines {
 
 @Test func airwayRecord() throws {
     let r = try AirwayFixRecord(Lines.line(Lines.airway))
+    #expect(r.area == "USA")
     #expect(r.route == "T461")
     #expect(r.sequence == 110)
     #expect(r.fix == FixReference(ident: "BELTT", region: "K6", code: "EA"))

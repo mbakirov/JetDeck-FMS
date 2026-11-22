@@ -162,9 +162,24 @@ func copyOfSample() throws -> String {
     }
     let fixes = try reader.airway(route)
     #expect(fixes.count >= 2)
-    #expect(fixes.map(\.sequence) == fixes.map(\.sequence).sorted())
+    for area in Set(fixes.map(\.area)) {
+        let sequences = fixes.filter { $0.area == area }.map(\.sequence)
+        #expect(sequences == sequences.sorted())
+    }
     #expect(fixes.allSatisfy { $0.fix.fix != nil })
     #expect(try reader.airway("NOSUCH").isEmpty)
+}
+
+@Test func airwaysWithTheSameNameInTwoAreas() throws {
+    // V440 is in the CAN area (Alaska) and in the USA area. They are two airways.
+    let fixes = try sampleReader().airway("V440")
+    #expect(Set(fixes.map(\.area)) == ["CAN", "USA"])
+    #expect(fixes.map(\.area) == fixes.map(\.area).sorted())
+    for area in ["CAN", "USA"] {
+        let sequences = fixes.filter { $0.area == area }.map(\.sequence)
+        #expect(sequences == sequences.sorted())
+        #expect(Set(sequences).count == sequences.count, "\(area)")
+    }
 }
 
 @Test func fixesNearAPointForTheND() throws {

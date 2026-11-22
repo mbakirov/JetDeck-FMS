@@ -142,8 +142,10 @@ func buildSample(in directory: URL, name: String = "sample.sqlite") throws -> (p
     let (path, _) = try buildSample(in: directory)
     let reader = try NavDatabaseReader(path: path)
     let report = try NavDBVerifier.verify(cifp: Data(contentsOf: sampleURL), database: reader, sampleSize: 20)
-    #expect(report.passed, "\(report.routeMismatches.prefix(5)) \(report.valueMismatches.prefix(5))")
+    #expect(report.passed, "\(report.airportMismatches) \(report.routeMismatches.prefix(5)) \(report.valueMismatches.prefix(5))")
     #expect(report.airports == 6)
+    #expect(report.sourceAirports == 6)
+    #expect(report.airportMismatches.isEmpty)
     #expect(report.sample.count == 6)
     #expect(report.sourceILSApproaches > 0)
     #expect(report.sourceProcedures.keys.sorted() == ["APPROACH", "SID", "STAR"])
@@ -164,6 +166,27 @@ func buildSample(in directory: URL, name: String = "sample.sqlite") throws -> (p
     #expect(!report.passed)
     #expect(report.routeMismatches == ["KJFK|APPROACH|I04L|I|: source 6 legs, database 5 legs"])
     #expect(report.valueMismatches.contains { $0.contains("IHIQ frequency") })
+}
+
+@Test func verifierFindsAMissingAirport() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let (path, _) = try buildSample(in: directory)
+    // The converter "lost" KACK with all its procedures.
+    let db = try SQLiteDatabase(path: path, mode: .readWriteCreate)
+    try db.execute("""
+        DELETE FROM procedure_leg WHERE transition_id IN (SELECT t.id FROM procedure_transition t
+            JOIN procedure p ON p.id = t.procedure_id WHERE p.airport = 'KACK');
+        DELETE FROM procedure_transition WHERE procedure_id IN (SELECT id FROM procedure WHERE airport = 'KACK');
+        DELETE FROM procedure WHERE airport = 'KACK';
+        DELETE FROM airport WHERE fix_id IN (SELECT id FROM fix WHERE airport = 'KACK');
+        DELETE FROM fix WHERE airport = 'KACK';
+        """)
+    let report = try NavDBVerifier.verify(cifp: Data(contentsOf: sampleURL), database: try NavDatabaseReader(path: path))
+    #expect(!report.passed)
+    #expect(report.airportMismatches == ["KACK: passes the filter, not in the database"])
+    #expect(report.airports == 5)
+    #expect(report.sourceAirports == 6)
 }
 
 @Test func benchMeasuresTheQuery() throws {

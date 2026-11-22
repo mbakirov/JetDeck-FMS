@@ -36,8 +36,8 @@ public struct NavDBStore: Sendable {
 
     public var downloadedURL: URL { directory.appendingPathComponent("navdb.sqlite") }
 
-    /// Opens the database to use: the downloaded one when it is valid and not older than the bundled one,
-    /// otherwise the bundled one.
+    /// Opens the database to use: the downloaded one when it is valid and the bundled one does not replace it
+    /// (`bundledReplaces`), otherwise the bundled one.
     public func openActive() throws(NavDataError) -> ActiveNavDatabase {
         var rejected: [String] = []
         var downloaded: NavDatabaseReader?
@@ -58,10 +58,10 @@ public struct NavDBStore: Sendable {
         }
         switch (downloaded, bundled) {
         case let (d?, b?):
-            if d.info.cycle >= b.info.cycle {
+            guard Self.bundledReplaces(b.info, downloaded: d.info) else {
                 return ActiveNavDatabase(reader: d, source: .downloaded, rejected: rejected)
             }
-            rejected.append("downloaded: cycle \(d.info.cycle.ident) is older than the bundled cycle \(b.info.cycle.ident)")
+            rejected.append("downloaded: \(d.info) is older than the bundled \(b.info)")
             return ActiveNavDatabase(reader: b, source: .bundled, rejected: rejected)
         case let (d?, nil):
             return ActiveNavDatabase(reader: d, source: .downloaded, rejected: rejected)
@@ -70,6 +70,14 @@ public struct NavDBStore: Sendable {
         case (nil, nil):
             throw .storage("no valid navigation database: \(rejected.joined(separator: "; "))")
         }
+    }
+
+    /// True when the bundled database is newer than the downloaded one: a newer cycle, or the same cycle from a newer
+    /// converter (a new release of the application can bundle a corrected database).
+    /// For the same cycle and converter the downloaded database stays: it can be a correction published after the release.
+    static func bundledReplaces(_ bundled: NavDataIdentity, downloaded: NavDataIdentity) -> Bool {
+        if bundled.cycle != downloaded.cycle { return bundled.cycle > downloaded.cycle }
+        return bundled.builderVersion > downloaded.builderVersion
     }
 
     /// Identity of the database that `openActive` gives now, or nil.

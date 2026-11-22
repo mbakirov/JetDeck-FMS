@@ -114,7 +114,8 @@ public struct AIRACCycle: Sendable, Hashable, Comparable, CustomStringConvertibl
 
     /// Reads an identifier such as `2611`. Returns nil when the year has no cycle with this number.
     public init?(ident: String) {
-        guard ident.count == 4, ident.allSatisfy(\.isASCII), let value = Int(ident) else { return nil }
+        // Four ASCII digits. `Int("+611")` is valid, so the characters are checked first.
+        guard ident.utf8.count == 4, ident.utf8.allSatisfy({ $0 >= 0x30 && $0 <= 0x39 }), let value = Int(ident) else { return nil }
         let year = 2000 + value / 100
         let number = value % 100
         guard number >= 1 else { return nil }
