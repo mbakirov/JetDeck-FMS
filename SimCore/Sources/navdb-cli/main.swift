@@ -1,6 +1,7 @@
 import Foundation
 import NavDB
 import NavDBBuilder
+import NavDBUpdate
 import SimCoreContract
 
 // Command-line tool of the navigation database: conversion of CIFP, checks, timing, manifest, test samples.
@@ -10,7 +11,7 @@ usage:
   navdb-cli convert --cifp <FAACIFP18> --out <navdb.sqlite> [--report <report.json>] [--min-runway <ft>]
   navdb-cli verify --cifp <FAACIFP18> --db <navdb.sqlite> [--report <verify.json>] [--sample <N>]
   navdb-cli bench --db <navdb.sqlite> [--radius <NM>] [--repeat <N>] [--out <report.json>] [--max-p99-ms <ms>]
-  navdb-cli manifest --db <navdb.sqlite> --url <file URL in the manifest> --out <manifest.json>
+  navdb-cli manifest --db <navdb.sqlite> --url <file URL in the manifest> --out <manifest.json> [--notices <notices.json>]
   navdb-cli extract-sample --cifp <FAACIFP18> --airports <K1,K2,...> --out <sample file>
 """
 
@@ -113,6 +114,18 @@ func bench(_ arguments: Arguments) throws -> Int32 {
     return 0
 }
 
+func manifest(_ arguments: Arguments) throws -> Int32 {
+    var notices: [NavDataNotice] = []
+    if let path = arguments.options["notices"] {
+        notices = try SimCoreJSON.decode([NavDataNotice].self, from: read(path))
+    }
+    let manifest = try NavDBManifest.make(databasePath: arguments.required("db"), url: arguments.required("url"), notices: notices)
+    try manifest.validate()
+    try writeJSON(manifest, to: arguments.required("out"))
+    print("manifest: AIRAC \(manifest.cycle.ident) (\(manifest.effective) – \(manifest.lastDay)), \(manifest.url), \(manifest.sizeBytes) bytes, SHA-256 \(manifest.sha256), \(notices.count) notices")
+    return 0
+}
+
 func extractSample(_ arguments: Arguments) throws -> Int32 {
     let airports = try arguments.required("airports").split(separator: ",").map(String.init)
     let sample = try CIFPSampler.extract(from: read(arguments.required("cifp")), airports: airports)
@@ -128,6 +141,7 @@ func main() -> Int32 {
         case "convert": return try convert(arguments)
         case "verify": return try verify(arguments)
         case "bench": return try bench(arguments)
+        case "manifest": return try manifest(arguments)
         case "extract-sample": return try extractSample(arguments)
         default: throw CLIError(description: "unknown command \(arguments.command)\n\(usage)")
         }

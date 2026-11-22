@@ -29,7 +29,7 @@ SAMPLE_AIRPORTS := KJFK,KMRY,KACK,TJSJ,PANC,KBTV,KCRQ,KASE,13FD,5KE
 
 help:
 	@echo "make build           build the SimCore package"
-	@echo "make build-ios       build the SimCore library for iPadOS (needs Xcode)"
+	@echo "make build-ios       build the SimCore and NavDB libraries for iPadOS (needs Xcode)"
 	@echo "make test            run all tests"
 	@echo "make test-<Target>   run the tests of one target, for example: make test-Kernel"
 	@echo "make lint-imports    check the layer rule for imports"
@@ -51,7 +51,9 @@ build:
 	$(SWIFT) build --package-path $(PACKAGE)
 
 build-ios:
-	cd $(PACKAGE) && xcodebuild -scheme SimCore -destination 'generic/platform=iOS' -derivedDataPath .build/xcode build
+	cd $(PACKAGE) && for scheme in SimCore NavDB; do \
+		xcodebuild -scheme $$scheme -destination 'generic/platform=iOS' -derivedDataPath .build/xcode build || exit 1; \
+	done
 
 test:
 	$(TEST)
@@ -91,7 +93,8 @@ navdb-bench:
 	$(NAVDB_CLI) bench --db $(NAVDB) --out $(REPORTS)/navdb-query.json --max-p99-ms $(NAVDB_P99_MS)
 
 navdb-manifest:
-	$(NAVDB_CLI) manifest --db $(NAVDB) --url $(NAVDB_URL) --out build/navdb/manifest.json
+	$(NAVDB_CLI) manifest --db $(NAVDB) --url $(NAVDB_URL) --out build/navdb/manifest.json \
+		$(if $(wildcard Docs/navdb-notices.json),--notices Docs/navdb-notices.json)
 
 navdb-cycle: navdb-fetch navdb-convert navdb-verify navdb-bench navdb-manifest
 

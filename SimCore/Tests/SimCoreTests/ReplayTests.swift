@@ -1,4 +1,7 @@
 import Foundation
+import Displays
+import FMS
+import Kernel
 import Testing
 @testable import SimCore
 
@@ -66,4 +69,64 @@ import Testing
     let data = try Replayer.snapshotsJSONL(recording, every: 50)
     let steps = try data.split(separator: 0x0A).map { try SimCoreJSON.decode(Snapshot.self, from: Data($0)).step }
     #expect(steps == [50, 100, 130])
+}
+
+/// A database with an identity and without data.
+struct IdentifiedNavDatabase: NavDatabase {
+    var identity: NavDataIdentity?
+
+    init(cycle: String, source: Character = "a") {
+        identity = NavDataIdentity(cycle: AIRACCycle(ident: cycle)!, schemaVersion: 1, builderVersion: 1,
+                                   sourceSHA256: String(repeating: source, count: 64))
+    }
+
+    func airport(_ ident: String) throws(NavDataError) -> NavAirport? { nil }
+    func runways(airport: String) throws(NavDataError) -> [NavRunway] { [] }
+    func localizers(airport: String) throws(NavDataError) -> [NavILS] { [] }
+    func fixes(ident: String) throws(NavDataError) -> [NavFix] { [] }
+    func navaids(ident: String) throws(NavDataError) -> [NavNavaid] { [] }
+    func waypoints(ident: String) throws(NavDataError) -> [NavWaypoint] { [] }
+    func procedures(airport: String, kind: NavProcedureKind?) throws(NavDataError) -> [NavProcedure] { [] }
+    func legs(transitionID: Int64) throws(NavDataError) -> [NavProcedureLeg] { [] }
+    func airway(_ route: String) throws(NavDataError) -> [NavAirwayFix] { [] }
+    func fixes(near center: GeoPoint, radiusNM: Double, kinds: Set<NavFixKind>) throws(NavDataError) -> [NavFix] { [] }
+}
+
+@Test func recordingHasTheNavigationDatabase() throws {
+    let database = IdentifiedNavDatabase(cycle: "2611")
+    let engine = SimEngine(initial: testInitial, navData: database)
+    engine.step()
+    let recording = engine.recording()
+    #expect(recording.navData == database.identity)
+    #expect(try FlightRecording.load(from: recording.encoded()) == recording)
+    // Without a database the recording has no identity, and the JSON has no key.
+    let plain = SimEngine(initial: testInitial).recording()
+    #expect(plain.navData == nil)
+    #expect(!String(decoding: try plain.encoded(), as: UTF8.self).contains("navData"))
+}
+
+@Test func replayNeedsTheSameNavigationDatabase() throws {
+    let database = IdentifiedNavDatabase(cycle: "2611")
+    let engine = SimEngine(initial: testInitial, navData: database)
+    for _ in 0..<10 { engine.step() }
+    let recording = engine.recording()
+
+    #expect(try Replayer.run(recording, navData: database).latestSnapshot.step == 10)
+    let other = IdentifiedNavDatabase(cycle: "2611", source: "b")
+    #expect(throws: RecordingError.navDataMismatch(recorded: database.identity, given: other.identity)) {
+        try Replayer.run(recording, navData: other)
+    }
+    #expect(throws: RecordingError.navDataMismatch(recorded: database.identity, given: nil)) {
+        try Replayer.run(recording)
+    }
+}
+
+@Test func modulesGetTheNavigationDatabase() {
+    let database = IdentifiedNavDatabase(cycle: "2612")
+    let modules = SimEngine.standardModules(navData: database)
+    let fms = modules.compactMap { $0 as? FMSModule }.first
+    let displays = modules.compactMap { $0 as? DisplaysModule }.first
+    #expect(fms?.navData.identity == database.identity)
+    #expect(displays?.navData.identity == database.identity)
+    #expect(SimEngine(initial: testInitial, navData: database).navData.identity == database.identity)
 }

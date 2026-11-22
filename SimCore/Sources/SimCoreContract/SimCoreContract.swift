@@ -13,7 +13,9 @@ public let simStepSeconds: Double = 0.02
 
 /// Increase this number when the event or snapshot format changes.
 /// Recordings with a different version cannot be replayed.
-public let contractSchemaVersion: Int = 1
+///
+/// History: 1 — E01. 2 — E02: a recording has the identity of the navigation database (`FlightRecording.navData`).
+public let contractSchemaVersion: Int = 2
 
 // MARK: - Facade
 

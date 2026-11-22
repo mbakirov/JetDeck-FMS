@@ -13,13 +13,14 @@ var targets: [Target] = [
         name: "SimCore",
         dependencies: ["SimCoreContract", "Kernel"] + modules.map { Target.Dependency(stringLiteral: $0) }
     ),
-    .executableTarget(name: "simcore-cli", dependencies: ["SimCore", "SnapshotDiff"]),
+    .executableTarget(name: "simcore-cli", dependencies: ["SimCore", "SnapshotDiff", "NavDB", "Kernel"]),
 
     // Navigation database (E02). The converter and the parser run at build time and are not in the application.
     .target(name: "ARINC424"),
     .target(name: "NavDB", dependencies: ["Kernel", "SimCoreContract"]),
     .target(name: "NavDBBuilder", dependencies: ["ARINC424", "NavDB", "Kernel", "SimCoreContract"]),
-    .executableTarget(name: "navdb-cli", dependencies: ["NavDBBuilder", "NavDB", "SimCoreContract"]),
+    .target(name: "NavDBUpdate", dependencies: ["NavDB", "Kernel", "SimCoreContract"]),
+    .executableTarget(name: "navdb-cli", dependencies: ["NavDBBuilder", "NavDBUpdate", "NavDB", "SimCoreContract"]),
 
     .testTarget(name: "SimCoreContractTests", dependencies: ["SimCoreContract"]),
     .testTarget(name: "KernelTests", dependencies: ["Kernel"]),
@@ -27,7 +28,8 @@ var targets: [Target] = [
     .testTarget(name: "ARINC424Tests", dependencies: ["ARINC424"]),
     .testTarget(name: "NavDBTests", dependencies: ["NavDB", "NavDBBuilder", "Kernel"]),
     .testTarget(name: "NavDBBuilderTests", dependencies: ["NavDBBuilder", "NavDB", "ARINC424", "Kernel"]),
-    .testTarget(name: "SimCoreTests", dependencies: ["SimCore"]),
+    .testTarget(name: "NavDBUpdateTests", dependencies: ["NavDBUpdate", "NavDB", "NavDBBuilder", "Kernel"]),
+    .testTarget(name: "SimCoreTests", dependencies: ["SimCore", "Kernel", "FMS", "Displays"]),
     .testTarget(
         name: "GoldenTests",
         dependencies: ["SimCore", "SnapshotDiff"],
@@ -47,7 +49,7 @@ let package = Package(
         .library(name: "SimCore", targets: ["SimCore"]),
         .library(name: "SnapshotDiff", targets: ["SnapshotDiff"]),
         .executable(name: "simcore-cli", targets: ["simcore-cli"]),
-        .library(name: "NavDB", targets: ["NavDB"]),
+        .library(name: "NavDB", targets: ["NavDB", "NavDBUpdate"]),
         .executable(name: "navdb-cli", targets: ["navdb-cli"]),
     ],
     targets: targets,

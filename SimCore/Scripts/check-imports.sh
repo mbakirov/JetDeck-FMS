@@ -20,7 +20,7 @@ allowed() {
         NavDBUpdate) echo "NavDB Kernel SimCoreContract CryptoKit" ;;
         navdb-cli) echo "NavDBBuilder NavDBUpdate NavDB Kernel SimCoreContract" ;;
         SimCore) echo "SimCoreContract Kernel World Sensors FMS AutoFlight FBW Aircraft Warnings Displays" ;;
-        simcore-cli) echo "SimCore SnapshotDiff SimCoreContract" ;;
+        simcore-cli) echo "SimCore SnapshotDiff SimCoreContract NavDB Kernel" ;;
         *) echo "__unknown__" ;;
     esac
 }

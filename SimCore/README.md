@@ -62,3 +62,28 @@ Run `make golden-update` after each intended change of the simulation results. E
 ## Step time
 
 `make bench` runs 30 000 steps and writes `build/reports/step-timing.json` and `step-timing.md` (mean, p50, p99, max). The budget of one step is 20 000 µs.
+
+## Navigation database
+
+The core reads the navigation data through the protocol `NavDatabase` (target `Kernel`). The file is SQLite, made from the FAA CIFP by `navdb-cli convert`. See `Docs/navdb.md` in the repository root.
+
+```swift
+import NavDB
+import NavDBUpdate
+import SimCore
+
+let store = NavDBStore(bundledPath: bundledURL.path, directory: applicationSupport.appendingPathComponent("NavDB"))
+let active = try store.openActive()                       // the downloaded database or the bundled one
+let engine = SimEngine(initial: initialConditions, navData: active.reader)
+active.reader.cycle?.ident                                // "2611", for the A/C STATUS page
+
+let updater = NavDBUpdater(manifestURL: manifestURL, store: store)
+_ = try await updater.update()                            // used from the next scenario
+```
+
+```
+make navdb-cycle                       # download, convert, verify, measure, manifest (needs network)
+swift run -c release navdb-cli convert --cifp FAACIFP18 --out navdb.sqlite --report report.json
+swift run -c release simcore-cli replay recording.json --navdb navdb.sqlite
+```
+

@@ -23,6 +23,13 @@
 | `SimCore` | Фасад `SimEngine`, внешний цикл `SimRunner`, повтор записи `Replayer` |
 | `SnapshotDiff` | Сравнение снимков с допуском |
 | `simcore-cli` | Команды `replay`, `diff`, `bench`, `gen-recording`, `golden-update` |
+| `ARINC424` | Разбор записей FAA CIFP (ARINC 424-18). Только для сборки |
+| `NavDBBuilder` | Конвертер CIFP в SQLite, проверка `verify`, замер `bench`. Только для сборки |
+| `navdb-cli` | Команды `convert`, `verify`, `bench`, `manifest`, `extract-sample` |
+| `NavDB` | Схема SQLite и модуль чтения `NavDatabaseReader` |
+| `NavDBUpdate` | Загрузка новой базы: манифест, SHA-256, замена файла, выбор базы, уведомления |
+
+Навигационная база описана в `Docs/navdb.md`. Протокол `NavDatabase` и типы данных лежат в `Kernel/NavData`. Модули симуляции видят только их, а не `NavDB`.
 
 ## Правила ядра
 
@@ -38,7 +45,9 @@
 - **Версия контракта.** Изменение формата событий или снимка требует увеличить `contractSchemaVersion` и пересоздать эталоны командой `make golden-update`. Запись с другой версией не воспроизводится.
 - **Пауза и скорость** — функции внешнего цикла `SimRunner`. Ядро о них не знает.
 - **Перезапуск сценария** — это новый экземпляр `SimEngine`, а не событие.
-- **Внешних зависимостей нет.**
+- **Навигационная база** передаётся в `SimEngine(initial:navData:)` и не меняется, пока существует ядро. Новая база — новый `SimEngine`. Запись полёта хранит идентичность базы, повтор с другой базой отклоняется.
+- **Схема NavDB.** Изменение таблиц требует увеличить `NavDBSchema.version`. Изменение конвертера, которое меняет содержимое базы, требует увеличить `NavDBBuilder.version`.
+- **Внешних зависимостей нет.** SQLite3 и CryptoKit — системные модули.
 
 ## Команды
 
@@ -54,8 +63,13 @@
 | `make replay-goldens` | Повторить эталонные записи и сравнить снимки |
 | `make golden-update` | Пересоздать эталонные снимки после намеренного изменения |
 | `make bench` | Замерить время шага, отчёт в `build/reports/` |
-| `make build-ios` | Собрать библиотеку под iPadOS (нужен Xcode) |
+| `make build-ios` | Собрать библиотеки SimCore и NavDB под iPadOS (нужен Xcode) |
 | `make check` | `build`, `lint-imports`, `test`, `bench`. Эту команду вызывает CI |
+| `make navdb-cycle` | Загрузить CIFP цикла, конвертировать, проверить, замерить, записать манифест. `AIRAC=next` — следующий цикл. Нужна сеть |
+| `make navdb-convert` | Конвертировать `build/cifp/<cycle>/FAACIFP18` в `build/navdb/navdb-<cycle>.sqlite` |
+| `make navdb-verify` | Сравнить базу с исходным файлом CIFP |
+| `make navdb-bench` | Замерить запрос для ND, ошибка при p99 больше `NAVDB_P99_MS` |
+| `make navdb-sample` | Сделать новый тестовый фрагмент CIFP |
 
 Перед завершением любой задачи выполнить `make check`.
 
@@ -63,6 +77,7 @@
 
 - Swift Testing (`import Testing`). У каждой цели своя цель тестов.
 - Эталоны: `SimCore/Tests/GoldenTests/Goldens/<имя>/recording.json` и `snapshots.jsonl`. Допуски сравнения задаются в `GoldenTests.swift`.
+- Тесты NavDB используют фрагмент CIFP `SimCore/Tests/Fixtures/CIFP-sample-2611.txt` и строят базу во временном каталоге. Полный файл CIFP в репозитории не хранится.
 - Запускать тесты через `make`. Makefile передаёт компилятору путь к плагину макросов Swift Testing. Без него сборка тестов иногда падает с ошибкой «plugin for module 'TestingMacros' not found».
 
 ## Платформы и язык
