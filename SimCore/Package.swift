@@ -15,9 +15,18 @@ var targets: [Target] = [
     ),
     .executableTarget(name: "simcore-cli", dependencies: ["SimCore", "SnapshotDiff"]),
 
+    // Navigation database (E02). The converter and the parser run at build time and are not in the application.
+    .target(name: "ARINC424"),
+    .target(name: "NavDB", dependencies: ["Kernel", "SimCoreContract"]),
+    .target(name: "NavDBBuilder", dependencies: ["ARINC424", "NavDB", "Kernel", "SimCoreContract"]),
+    .executableTarget(name: "navdb-cli", dependencies: ["NavDBBuilder", "NavDB", "SimCoreContract"]),
+
     .testTarget(name: "SimCoreContractTests", dependencies: ["SimCoreContract"]),
     .testTarget(name: "KernelTests", dependencies: ["Kernel"]),
     .testTarget(name: "SnapshotDiffTests", dependencies: ["SnapshotDiff"]),
+    .testTarget(name: "ARINC424Tests", dependencies: ["ARINC424"]),
+    .testTarget(name: "NavDBTests", dependencies: ["NavDB", "NavDBBuilder", "Kernel"]),
+    .testTarget(name: "NavDBBuilderTests", dependencies: ["NavDBBuilder", "NavDB", "ARINC424", "Kernel"]),
     .testTarget(name: "SimCoreTests", dependencies: ["SimCore"]),
     .testTarget(
         name: "GoldenTests",
@@ -38,6 +47,8 @@ let package = Package(
         .library(name: "SimCore", targets: ["SimCore"]),
         .library(name: "SnapshotDiff", targets: ["SnapshotDiff"]),
         .executable(name: "simcore-cli", targets: ["simcore-cli"]),
+        .library(name: "NavDB", targets: ["NavDB"]),
+        .executable(name: "navdb-cli", targets: ["navdb-cli"]),
     ],
     targets: targets,
     swiftLanguageModes: [.v6]
