@@ -1,0 +1,40 @@
+import Foundation
+
+extension InputEvent {
+    /// At least one event of each kind. Tests and tools use this list. The application does not use it.
+    public static let samples: [InputEvent] = [
+        .fcu(.knobTurned(.speed, clicks: 3)),
+        .fcu(.knobTurned(.heading, clicks: -12)),
+        .fcu(.knobPushed(.altitude)),
+        .fcu(.knobPulled(.verticalSpeed)),
+        .fcu(.buttonPressed(.ap1)),
+        .fcu(.buttonPressed(.appr)),
+        .fcu(.altitudeIncrementSet(.thousand)),
+        .efis(.baroKnobTurned(clicks: -2)),
+        .efis(.baroKnobPushed),
+        .efis(.baroKnobPulled),
+        .efis(.baroUnitSet(.inHg)),
+        .efis(.buttonPressed(.ls)),
+        .efis(.ndModeSet(.roseILS)),
+        .efis(.ndRangeSet(.nm40)),
+        .efis(.navaidSelectorSet(index: 1, .vor)),
+        .mcdu(.lineSelect(.left, row: 1)),
+        .mcdu(.lineSelect(.right, row: 6)),
+        .mcdu(.page(.fPln)),
+        .mcdu(.slewUp), .mcdu(.slewDown), .mcdu(.slewLeft), .mcdu(.slewRight),
+        .mcdu(.character(UInt8(ascii: "A"))),
+        .mcdu(.character(UInt8(ascii: "7"))),
+        .mcdu(.dot), .mcdu(.slash), .mcdu(.plusMinus), .mcdu(.space), .mcdu(.overfly),
+        .mcdu(.clear), .mcdu(.clearHeld),
+        .pedestal(.thrustLeversMoved(angleDeg: 25)),
+        .pedestal(.athrDisconnectPressed),
+        .pedestal(.flapLeverMoved(.two)),
+        .pedestal(.gearLeverMoved(.down)),
+        .pedestal(.speedBrakeLeverMoved(position: 0.5)),
+        .pedestal(.groundSpoilersArmed(true)),
+        .stick(.apDisconnectPressed),
+        .glareshield(.masterWarningPressed),
+        .glareshield(.masterCautionPressed),
+        .scenario(.messageAcknowledged(seq: 1)),
+    ]
+}
