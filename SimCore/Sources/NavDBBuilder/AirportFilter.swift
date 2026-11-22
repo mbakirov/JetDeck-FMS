@@ -15,6 +15,9 @@ public struct AirportFilter: Sendable {
         self.minimumRunwayFt = minimumRunwayFt
     }
 
+    /// The filter of the converter. A change needs a new `NavDBBuilder.version`.
+    public static let standard = AirportFilter()
+
     public enum Rejection: String, Sendable, Codable, CaseIterable {
         case notHardSurface
         case noILS

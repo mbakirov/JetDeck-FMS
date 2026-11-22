@@ -130,9 +130,13 @@ public struct NavRunway: Sendable, Equatable {
     /// Identifier of the ILS for this runway.
     public var localizerIdent: String?
     public var localizerCategory: String?
+    /// A second ILS, LOC or LDA for this runway, for example IVWH for KDCA RW19.
+    public var secondLocalizerIdent: String?
+    public var secondLocalizerCategory: String?
 
     public init(fix: NavFix, lengthFt: Int, widthFt: Int?, bearing: NavCourse?, thresholdElevationFt: Int?,
-                displacedThresholdFt: Int?, thresholdCrossingHeightFt: Int?, localizerIdent: String?, localizerCategory: String?) {
+                displacedThresholdFt: Int?, thresholdCrossingHeightFt: Int?, localizerIdent: String?, localizerCategory: String?,
+                secondLocalizerIdent: String? = nil, secondLocalizerCategory: String? = nil) {
         self.fix = fix
         self.lengthFt = lengthFt
         self.widthFt = widthFt
@@ -142,6 +146,8 @@ public struct NavRunway: Sendable, Equatable {
         self.thresholdCrossingHeightFt = thresholdCrossingHeightFt
         self.localizerIdent = localizerIdent
         self.localizerCategory = localizerCategory
+        self.secondLocalizerIdent = secondLocalizerIdent
+        self.secondLocalizerCategory = secondLocalizerCategory
     }
 
     public var ident: String { fix.ident }
@@ -238,10 +244,13 @@ public struct NavWaypoint: Sendable, Equatable {
 
 /// One fix of an en route airway.
 public struct NavAirwayFix: Sendable, Equatable {
-    /// ARINC 424 area code, for example `USA` or `CAN`. Two airways with the same name in different areas
-    /// are different airways.
+    /// ARINC 424 area code of the record, for example `USA` or `CAN`.
     public var area: String
     public var route: String
+    /// Continuous part of the airway, 1-based. A new segment starts where the airway is broken: an end of the airway
+    /// in the source, a part outside the US data, or another airway with the same name in another area.
+    /// An airway that the source splits between two areas is one segment.
+    public var segment: Int
     public var sequence: Int
     public var fix: NavFixRef
     public var descriptionCode: String
@@ -254,13 +263,17 @@ public struct NavAirwayFix: Sendable, Equatable {
     public var inboundCourse: NavCourse?
     public var distanceNM: Double?
     public var minimumAltitudeFt: Int?
+    /// The second minimum altitude (ARINC 424 columns 89-93), for the other direction of flight or for a different
+    /// cruise table.
+    public var minimumAltitude2Ft: Int?
     public var maximumAltitudeFt: Int?
 
-    public init(area: String, route: String, sequence: Int, fix: NavFixRef, descriptionCode: String, routeType: String, level: String,
-                directionRestriction: String, outboundCourse: NavCourse?, inboundCourse: NavCourse?, distanceNM: Double?,
-                minimumAltitudeFt: Int?, maximumAltitudeFt: Int?) {
+    public init(area: String, route: String, segment: Int, sequence: Int, fix: NavFixRef, descriptionCode: String, routeType: String,
+                level: String, directionRestriction: String, outboundCourse: NavCourse?, inboundCourse: NavCourse?, distanceNM: Double?,
+                minimumAltitudeFt: Int?, minimumAltitude2Ft: Int?, maximumAltitudeFt: Int?) {
         self.area = area
         self.route = route
+        self.segment = segment
         self.sequence = sequence
         self.fix = fix
         self.descriptionCode = descriptionCode
@@ -271,6 +284,7 @@ public struct NavAirwayFix: Sendable, Equatable {
         self.inboundCourse = inboundCourse
         self.distanceNM = distanceNM
         self.minimumAltitudeFt = minimumAltitudeFt
+        self.minimumAltitude2Ft = minimumAltitude2Ft
         self.maximumAltitudeFt = maximumAltitudeFt
     }
 }
@@ -363,7 +377,9 @@ public struct NavProcedureLeg: Sendable, Equatable {
     public var speedLimitDescription: String?
     /// Negative for a descent.
     public var verticalAngleDeg: Double?
-    /// Center of an RF or AF leg.
+    /// The center fix field (ARINC 424 columns 107-116). For an RF leg it is the center of the arc. For other legs
+    /// the FAA puts the center of the MSA there (a runway, an airport or a navaid), so use it as an arc center only
+    /// when `pathTerminator` is `RF`. The center of an AF arc is `recommendedNavaid`.
     public var centerFix: NavFixRef?
     public var rnpNM: Double?
 

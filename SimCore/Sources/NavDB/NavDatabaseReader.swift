@@ -96,7 +96,8 @@ public final class NavDatabaseReader: NavDatabase {
         try query { db throws(SQLiteError) in
             try db.rows("""
                 SELECT \(Self.fixColumns), r.length_ft, r.width_ft, r.bearing_deg, r.bearing_true, r.threshold_elevation_ft,
-                       r.displaced_threshold_ft, r.tch_ft, r.localizer, r.localizer_category
+                       r.displaced_threshold_ft, r.tch_ft, r.localizer, r.localizer_category, r.second_localizer,
+                       r.second_localizer_category
                 FROM fix f JOIN runway r ON r.fix_id = f.id
                 WHERE f.airport = ? AND f.kind = 'runway'
                 ORDER BY f.ident, f.id
@@ -105,7 +106,8 @@ public final class NavDatabaseReader: NavDatabase {
                 return NavRunway(fix: r.fix(), lengthFt: r.int(), widthFt: r.optionalInt(), bearing: r.optionalCourse(),
                                  thresholdElevationFt: r.optionalInt(), displacedThresholdFt: r.optionalInt(),
                                  thresholdCrossingHeightFt: r.optionalInt(), localizerIdent: r.optionalText(),
-                                 localizerCategory: r.optionalText())
+                                 localizerCategory: r.optionalText(), secondLocalizerIdent: r.optionalText(),
+                                 secondLocalizerCategory: r.optionalText())
             }
         }
     }
@@ -257,22 +259,25 @@ public final class NavDatabaseReader: NavDatabase {
     public func airway(_ route: String) throws(NavDataError) -> [NavAirwayFix] {
         try query { db throws(SQLiteError) in
             try db.rows("""
-                SELECT w.area, w.route, w.seq, w.fix_ident, w.fix_region, w.fix_code, \(Self.fixColumns("f")),
+                SELECT w.area, w.route, w.segment, w.seq, w.fix_ident, w.fix_region, w.fix_code, \(Self.fixColumns("f")),
                        w.description, w.route_type, w.level, w.direction, w.outbound_course_deg, w.outbound_course_true,
-                       w.inbound_course_deg, w.inbound_course_true, w.distance_nm, w.min_altitude_ft, w.max_altitude_ft
+                       w.inbound_course_deg, w.inbound_course_true, w.distance_nm, w.min_altitude_ft, w.min_altitude2_ft,
+                       w.max_altitude_ft
                 FROM airway_fix w LEFT JOIN fix f ON f.id = w.fix_id
                 WHERE w.route = ?
-                ORDER BY w.area, w.seq, w.id
+                ORDER BY w.segment, w.seq, w.id
                 """, [.text(route)]) { s in
                 var r = RowReader(s)
                 let area = r.text()
                 let routeName = r.text()
+                let segment = r.int()
                 let sequence = r.int()
                 let fix = r.fixRef() ?? NavFixRef(ident: "", region: "", code: "", fix: nil)
-                return NavAirwayFix(area: area, route: routeName, sequence: sequence, fix: fix, descriptionCode: r.text(),
-                                    routeType: r.text(), level: r.text(), directionRestriction: r.text(),
-                                    outboundCourse: r.optionalCourse(), inboundCourse: r.optionalCourse(),
-                                    distanceNM: r.optionalDouble(), minimumAltitudeFt: r.optionalInt(),
+                return NavAirwayFix(area: area, route: routeName, segment: segment, sequence: sequence, fix: fix,
+                                    descriptionCode: r.text(), routeType: r.text(), level: r.text(),
+                                    directionRestriction: r.text(), outboundCourse: r.optionalCourse(),
+                                    inboundCourse: r.optionalCourse(), distanceNM: r.optionalDouble(),
+                                    minimumAltitudeFt: r.optionalInt(), minimumAltitude2Ft: r.optionalInt(),
                                     maximumAltitudeFt: r.optionalInt())
             }
         }

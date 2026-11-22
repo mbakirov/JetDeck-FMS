@@ -7,6 +7,8 @@ struct Plan {
     struct AirwayFix {
         var record: AirwayFixRecord
         var fixID: Int64?
+        /// Continuous part of the airway, 1-based for each airway name (`airwaySegments`).
+        var segment: Int
     }
 
     struct Leg {
@@ -46,6 +48,8 @@ struct Plan {
     /// Source line → row id.
     private(set) var fixID: [Int: Int64] = [:]
     private(set) var airwayFixes: [AirwayFix] = []
+    /// Records of a fix at an area boundary that is also in the other area (same sequence, same fix). Not written.
+    private(set) var airwayBoundaryDuplicates = 0
     private(set) var procedures: [Procedure] = []
     private(set) var unresolved: [String] = []
     private(set) var unresolvedByCode: [String: Int] = [:]
@@ -73,13 +77,15 @@ struct Plan {
             }
         }
 
-        // References of the airways and of the procedures of the kept airports. A referenced point of another
-        // airport is also written, so that the reference is resolved.
-        var airwayLines: [(AirwayFixRecord, Int?)] = []
+        // References of the airways and of the procedures of the kept airports. A referenced waypoint or navaid
+        // of another airport is also written, so that the reference is resolved. An airport is never added.
+        var airwayTarget: [Int: Int] = [:]
         for record in content.airwayFixes {
             let line = resolve(record.fix, airport: nil, context: "airway \(record.route) \(record.sequence)", line: record.line)
-            if let line { included.insert(line) }
-            airwayLines.append((record, line))
+            if let line {
+                included.insert(line)
+                airwayTarget[record.line] = line
+            }
         }
         var legLines: [(ProcedureLegRecord, Int?, Int?, Int?)] = []
         for record in content.procedureLegs where keptAirports.contains(record.airport) {
@@ -96,7 +102,20 @@ struct Plan {
             fixID[line] = Int64(offset + 1)
             fixes.append(catalog.sources[line]!)
         }
-        airwayFixes = airwayLines.map { AirwayFix(record: $0.0, fixID: $0.1.flatMap { fixID[$0] }) }
+        var routes: [String: [AirwayFixRecord]] = [:]
+        var routeOrder: [String] = []
+        for record in content.airwayFixes {
+            if routes[record.route] == nil { routeOrder.append(record.route) }
+            routes[record.route, default: []].append(record)
+        }
+        for route in routeOrder {
+            let records = routes[route]!
+            let segments = Self.airwaySegments(records)
+            airwayBoundaryDuplicates += records.count - segments.count
+            for (record, segment) in segments {
+                airwayFixes.append(AirwayFix(record: record, fixID: airwayTarget[record.line].flatMap { fixID[$0] }, segment: segment))
+            }
+        }
         buildProcedures(legLines)
         count()
     }
@@ -119,11 +138,81 @@ struct Plan {
     }
 
     private mutating func resolve(_ reference: FixReference, airport: String?, context: String, line: Int) -> Int? {
-        if let resolved = catalog.resolve(reference, airport: airport) { return resolved }
         let code = reference.code.isEmpty ? "?" : reference.code
-        unresolvedByCode[code, default: 0] += 1
-        unresolved.append("\(context): \(reference.ident) \(reference.region) \(code) (line \(line))")
-        return nil
+        guard let resolved = catalog.resolve(reference, airport: airport) else {
+            unresolvedByCode[code, default: 0] += 1
+            unresolved.append("\(context): \(reference.ident) \(reference.region) \(code) (line \(line))")
+            return nil
+        }
+        // An airport that the filter rejected is not written: it would be an airport without runways in the
+        // database. The reference stays unresolved (in the source data it is usually a typing error).
+        if let source = catalog.sources[resolved], source.kind == .airport, !keptAirports.contains(source.ident) {
+            unresolvedByCode[code, default: 0] += 1
+            unresolved.append("\(context): \(reference.ident) \(reference.region) \(code) (line \(line)): the airport is not in the database")
+            return nil
+        }
+        return resolved
+    }
+
+    /// Orders the fixes of one airway name and splits them into continuous segments.
+    ///
+    /// In CIFP one airway can be split between areas (`USA`, `CAN`, `PAC`, `LAM`): the fix at the boundary is in both
+    /// areas with the same sequence number, and the sequence numbers continue. Other airways with the same name in
+    /// different areas are different airways. Rules:
+    /// - Areas that share a fix (same sequence number and identifier) are one chain. Other areas are separate chains.
+    /// - In a chain the fixes are in sequence order. A shared fix is written once.
+    /// - A segment ends at a fix with the end flag (column 41 of the description code is `E`), unless the same fix
+    ///   in another area has no end flag. Chains are ordered by their first sequence number, then by area.
+    static func airwaySegments(_ records: [AirwayFixRecord]) -> [(AirwayFixRecord, Int)] {
+        func key(_ r: AirwayFixRecord) -> String { "\(r.sequence)|\(r.fix.ident)" }
+        func isEnd(_ r: AirwayFixRecord) -> Bool {
+            let c = Array(r.descriptionCode)
+            return c.count > 1 && c[1] == "E"
+        }
+        var byArea: [String: [AirwayFixRecord]] = [:]
+        for r in records { byArea[r.area, default: []].append(r) }
+        let areas = byArea.keys.sorted()
+        var keys: [String: Set<String>] = [:]
+        for area in areas { keys[area] = Set(byArea[area]!.map(key)) }
+
+        // Union of areas that share a fix.
+        var parent = Dictionary(uniqueKeysWithValues: areas.map { ($0, $0) })
+        func root(_ a: String) -> String {
+            var a = a
+            while parent[a]! != a { a = parent[a]! }
+            return a
+        }
+        for (i, a) in areas.enumerated() {
+            for b in areas[(i + 1)...] where !keys[a]!.isDisjoint(with: keys[b]!) {
+                let ra = root(a), rb = root(b)
+                if ra != rb { parent[max(ra, rb)] = min(ra, rb) }
+            }
+        }
+        var chains: [String: [AirwayFixRecord]] = [:]
+        for area in areas { chains[root(area), default: []] += byArea[area]! }
+        let ordered = chains.values.map { chain in
+            // A copy without the end flag comes first, so that it is the copy that is written.
+            chain.sorted { ($0.sequence, isEnd($0) ? 1 : 0, $0.area, $0.line) < ($1.sequence, isEnd($1) ? 1 : 0, $1.area, $1.line) }
+        }.sorted { ($0[0].sequence, $0[0].area) < ($1[0].sequence, $1[0].area) }
+
+        var result: [(AirwayFixRecord, Int)] = []
+        var segment = 0
+        for chain in ordered {
+            segment += 1
+            var previous: AirwayFixRecord?
+            var previousEnds = false
+            for r in chain {
+                if let p = previous, p.sequence == r.sequence, p.fix.ident == r.fix.ident {
+                    previousEnds = previousEnds && isEnd(r)
+                    continue
+                }
+                if previous != nil, previousEnds { segment += 1 }
+                result.append((r, segment))
+                previous = r
+                previousEnds = isEnd(r)
+            }
+        }
+        return result
     }
 
     private mutating func buildProcedures(_ legs: [(ProcedureLegRecord, Int?, Int?, Int?)]) {
@@ -180,6 +269,8 @@ struct Plan {
         for source in fixes { written["fix.\(source.kind.rawValue)", default: 0] += 1 }
         written["fix"] = fixes.count
         written["airway_fix"] = airwayFixes.count
+        written["airway_fix.boundaryDuplicates"] = airwayBoundaryDuplicates
+        written["airway_segment"] = Set(airwayFixes.map { "\($0.record.route)|\($0.segment)" }).count
         written["procedure"] = procedures.count
         written["procedure_transition"] = procedures.reduce(0) { $0 + $1.routes.count }
         written["procedure_leg"] = procedures.reduce(0) { $0 + $1.routes.reduce(0) { $0 + $1.legs.count } }

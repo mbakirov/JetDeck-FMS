@@ -48,6 +48,11 @@ public enum NavDataPush {
     /// Key of the notice in the payload.
     public static let payloadKey = "navdb"
 
+    public enum PayloadError: Error, Equatable {
+        /// The value of the key `navdb` is not a JSON object.
+        case notAnObject
+    }
+
     /// Reads the notice from the JSON of a payload. Returns nil when the payload has no notice.
     public static func notice(fromPayload data: Data) throws -> NavDataNotice? {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
@@ -57,6 +62,9 @@ public enum NavDataPush {
     /// Reads the notice from `userInfo` of a received notification. Returns nil when it has no notice.
     public static func notice(fromUserInfo userInfo: [AnyHashable: Any]) throws -> NavDataNotice? {
         guard let value = userInfo[payloadKey] else { return nil }
+        // JSONSerialization raises an Objective-C exception (not a Swift error) for a value that is not a container
+        // or that has non-JSON content. Such an exception ends the application, so the value is checked first.
+        guard value is [String: Any], JSONSerialization.isValidJSONObject(value) else { throw PayloadError.notAnObject }
         let data = try JSONSerialization.data(withJSONObject: value)
         return try SimCoreJSON.decode(NavDataNotice.self, from: data)
     }

@@ -119,8 +119,6 @@ public final class SQLiteDatabase {
     public func scalar(_ sql: String, _ parameters: [SQLiteValue] = []) throws(SQLiteError) -> SQLiteValue? {
         try rows(sql, parameters) { $0.value(0) }.first
     }
-
-    public var lastInsertRowID: Int64 { sqlite3_last_insert_rowid(handle) }
 }
 
 /// A prepared statement of `SQLiteDatabase`.

@@ -394,7 +394,7 @@ public struct ProcedureLegRecord: Sendable, Equatable {
     public var speedLimitDescription: Character?
     /// Vertical angle in degrees. Negative for a descent.
     public var verticalAngleDeg: Double?
-    /// Center fix of an RF or AF leg.
+    /// Center fix field (columns 107-116): the arc center of an RF leg, or the MSA center on other legs (FAA CIFP).
     public var centerFix: FixReference?
     public var routeQualifier1: Character?
     public var routeQualifier2: Character?

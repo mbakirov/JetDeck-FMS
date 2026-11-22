@@ -72,11 +72,6 @@ struct FixCatalog {
         index[source.code, default: [:]][source.ident, default: []].append(source.line)
     }
 
-    /// Source lines of all points with this code, in file order.
-    func lines(code: String) -> [Int] {
-        (index[code] ?? [:]).values.flatMap { $0 }.sorted()
-    }
-
     /// The source line of the referenced point, or nil. `airport` is the airport of the procedure, if any.
     func resolve(_ reference: FixReference, airport: String?) -> Int? {
         let candidates = (index[reference.code]?[reference.ident] ?? []).compactMap { sources[$0] }

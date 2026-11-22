@@ -281,4 +281,25 @@ import Testing
     #expect(try NavDataPush.notice(fromPayload: Data(payload.utf8)) == notice)
     #expect(try NavDataPush.notice(fromPayload: Data(#"{"aps": {}}"#.utf8)) == nil)
     #expect(throws: (any Error).self) { try NavDataPush.notice(fromUserInfo: ["navdb": ["id": "x"]]) }
+    // A value that is not a JSON object is an error, not a crash.
+    #expect(throws: NavDataPush.PayloadError.notAnObject) { try NavDataPush.notice(fromUserInfo: ["navdb": "text"]) }
+    #expect(throws: NavDataPush.PayloadError.notAnObject) { try NavDataPush.notice(fromUserInfo: ["navdb": [1, 2]]) }
+    #expect(throws: NavDataPush.PayloadError.notAnObject) { try NavDataPush.notice(fromPayload: Data(#"{"navdb": 5}"#.utf8)) }
+}
+
+@Test func unusableFilesAreRemoved() throws {
+    let databases = SampleDatabases.shared
+    let directory = temporaryDirectory()
+    let store = NavDBStore(bundledPath: databases.cycle2611, directory: directory)
+    // A download left by a stopped update, and a downloaded database of another schema.
+    try Data(repeating: 1, count: 100).write(to: directory.appendingPathComponent("download-ABC.sqlite"))
+    try FileManager.default.copyItem(atPath: databases.cycle2612, toPath: store.downloadedURL.path)
+    try SQLiteDatabase(path: store.downloadedURL.path, mode: .readWriteCreate).execute("PRAGMA user_version = 99")
+    #expect(store.removeUnusableFiles() == ["download-ABC.sqlite", "navdb.sqlite"])
+    #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+
+    // A valid downloaded database stays.
+    try FileManager.default.copyItem(atPath: databases.cycle2612, toPath: store.downloadedURL.path)
+    #expect(store.removeUnusableFiles().isEmpty)
+    #expect(try store.openActive().source == .downloaded)
 }

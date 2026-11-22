@@ -207,3 +207,105 @@ func buildSample(in directory: URL, name: String = "sample.sqlite") throws -> (p
     #expect(content.header.recordCount == content.dataRecordCount)
     #expect(content.procedureLegs.allSatisfy { $0.airport == "KMRY" })
 }
+
+// MARK: Airway segments
+
+/// An airway record made from a real one (T461 in FAACIFP18) with other area, route, sequence, fix and description.
+func airwayRecord(_ area: String, _ route: String, _ sequence: Int, _ fix: String, _ description: String = "E   ",
+                  line: Int) -> AirwayFixRecord {
+    var bytes = Array("SUSAER       T461        0110BELTTK6EA0E    RL                        326200320546 01800     06000                         629302512".utf8)
+    func put(_ text: String, _ columns: ClosedRange<Int>) {
+        let padded = text.padding(toLength: columns.count, withPad: " ", startingAt: 0)
+        bytes.replaceSubrange((columns.lowerBound - 1)..<columns.upperBound, with: Array(padded.utf8))
+    }
+    put(area, 2...4)
+    put(route, 14...18)
+    put(String(format: "%04d", sequence), 26...29)
+    put(fix, 30...34)
+    put(description, 40...43)
+    return try! AirwayFixRecord(ARINC424Line(number: line, bytes: bytes)!)
+}
+
+func segments(_ records: [AirwayFixRecord]) -> [String] {
+    Plan.airwaySegments(records).map { "\($0.1) \($0.0.sequence) \($0.0.fix.ident) \($0.0.area)" }
+}
+
+@Test func airwaySplitBetweenAreasIsOneSegment() {
+    // A342 in FAACIFP18: PINSO is the boundary fix in PAC and in CAN with the same sequence number.
+    let records = [
+        airwayRecord("CAN", "A342", 120, "PINSO", line: 1), airwayRecord("CAN", "A342", 130, "AMOND", line: 2),
+        airwayRecord("CAN", "A342", 140, "CDB", "VE  ", line: 3),
+        airwayRecord("PAC", "A342", 100, "NUZAN", line: 4), airwayRecord("PAC", "A342", 110, "OPAKE", line: 5),
+        airwayRecord("PAC", "A342", 120, "PINSO", "EE  ", line: 6),
+    ]
+    #expect(segments(records) == ["1 100 NUZAN PAC", "1 110 OPAKE PAC", "1 120 PINSO CAN", "1 130 AMOND CAN", "1 140 CDB CAN"])
+}
+
+@Test func airwayThatLeavesAndEntersAnAreaIsOneSegment() {
+    // M576 in FAACIFP18: USA ANNER (end flag) and PJM, LAM ANNER-PORQE-DANDE-PJM between them.
+    let records = [
+        airwayRecord("LAM", "M576", 130, "ANNER", line: 1), airwayRecord("LAM", "M576", 140, "PORQE", line: 2),
+        airwayRecord("LAM", "M576", 150, "DANDE", line: 3), airwayRecord("LAM", "M576", 160, "PJM", "VE  ", line: 4),
+        airwayRecord("USA", "M576", 100, "MILOK", line: 5), airwayRecord("USA", "M576", 130, "ANNER", "EE  ", line: 6),
+        airwayRecord("USA", "M576", 160, "PJM", "V   ", line: 7), airwayRecord("USA", "M576", 170, "MNOLO", "EE  ", line: 8),
+    ]
+    #expect(segments(records) == ["1 100 MILOK USA", "1 130 ANNER LAM", "1 140 PORQE LAM", "1 150 DANDE LAM",
+                                  "1 160 PJM USA", "1 170 MNOLO USA"])
+}
+
+@Test func airwaysWithTheSameNameAndBreaksAreSegments() {
+    // V1 in FAACIFP18: USA 100-550 with a break after ISO (320), and another V1 in PAC from 5100.
+    let records = [
+        airwayRecord("PAC", "V1", 5100, "KOA", line: 1), airwayRecord("PAC", "V1", 5110, "OGG", "VE  ", line: 2),
+        airwayRecord("USA", "V1", 100, "CRG", line: 3), airwayRecord("USA", "V1", 320, "ISO", "VE  ", line: 4),
+        airwayRecord("USA", "V1", 330, "ATR", line: 5), airwayRecord("USA", "V1", 550, "BOS", "VE  ", line: 6),
+    ]
+    #expect(segments(records) == ["1 100 CRG USA", "1 320 ISO USA", "2 330 ATR USA", "2 550 BOS USA",
+                                  "3 5100 KOA PAC", "3 5110 OGG PAC"])
+    // J501: parts in USA and CAN without a shared fix (the part in Canada is not in the data).
+    let j501 = [
+        airwayRecord("CAN", "J501", 230, "EEVER", line: 1), airwayRecord("CAN", "J501", 350, "BET", "VE  ", line: 2),
+        airwayRecord("USA", "J501", 100, "RZS", line: 3), airwayRecord("USA", "J501", 200, "CYVIC", "EE  ", line: 4),
+    ]
+    #expect(segments(j501) == ["1 100 RZS USA", "1 200 CYVIC USA", "2 230 EEVER CAN", "2 350 BET CAN"])
+}
+
+// MARK: References and runways
+
+/// The sample with some lines changed.
+func buildChangedSample(in directory: URL, _ changes: [(String, String)]) throws -> (path: String, report: BuildReport) {
+    var text = try String(contentsOf: sampleURL, encoding: .utf8)
+    for (old, new) in changes {
+        precondition(text.contains(old), "not in the sample: \(old)")
+        text = text.replacingOccurrences(of: old, with: new)
+    }
+    let path = directory.appendingPathComponent("changed.sqlite").path
+    return (path, try NavDBBuilder.build(cifp: Data(text.utf8), sourceFileName: "changed", output: path))
+}
+
+@Test func referenceToARejectedAirportIsNotWritten() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    // The center fix of a KJFK leg points at KASE (an airport without ILS), as an FAA typing error would.
+    let leg = "2238006504400060PI  H 0150001500            JFK   K6D 0 NS"
+    let (path, report) = try buildChangedSample(in: directory, [(leg, leg.replacingOccurrences(of: "JFK   K6D ", with: "KASE  K2PA"))])
+    #expect(report.written["fix.airport"] == 6)
+    #expect(report.unresolvedReferences.count == 1)
+    #expect(report.unresolvedReferences.samples.first?.hasSuffix("the airport is not in the database") == true)
+    let reader = try NavDatabaseReader(path: path)
+    #expect(try reader.airport("KASE") == nil)
+    let verify = try NavDBVerifier.verify(cifp: Data(contentsOf: sampleURL), database: reader)
+    #expect(verify.airportMismatches.isEmpty)
+}
+
+@Test func secondLocalizerOfARunwayIsReadable() throws {
+    let directory = try temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    // RW04L of KJFK with a second localizer IXYZ, category 1, in columns 91-95.
+    let runway = "SUSAP KJFKK6GRW04L   0120790440 N40372318W073470505         -0028300012046057200IIHIQ1    "
+    let (path, _) = try buildChangedSample(in: directory, [(runway + "     ", runway + "IXYZ1")])
+    let rw04L = try NavDatabaseReader(path: path).runways(airport: "KJFK").first { $0.ident == "RW04L" }
+    #expect(rw04L?.localizerIdent == "IHIQ")
+    #expect(rw04L?.secondLocalizerIdent == "IXYZ")
+    #expect(rw04L?.secondLocalizerCategory == "1")
+}

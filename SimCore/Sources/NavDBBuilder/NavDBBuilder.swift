@@ -28,14 +28,17 @@ public enum BuildError: Error, Sendable, CustomStringConvertible {
 public enum NavDBBuilder {
     /// Increase after each change of the conversion that can change the content of the database.
     ///
-    /// History: 1 — first version. 2 — second localizer of a runway from columns 91-94; area of airways.
+    /// History: 1 — first version. 2 — second localizer of a runway from columns 91-94; airway segments across areas;
+    /// no airport that the filter rejected.
     public static let version = 2
 
     /// Number of errors and references that the report lists in full.
     static let listLimit = 200
 
-    public static func build(cifp data: Data, sourceFileName: String, output: String,
-                             filter: AirportFilter = AirportFilter()) throws(BuildError) -> BuildReport {
+    /// The airport filter is fixed (`AirportFilter.standard`): it is part of the converter, so `version` covers it
+    /// and two databases with the same identity always have the same airports.
+    public static func build(cifp data: Data, sourceFileName: String, output: String) throws(BuildError) -> BuildReport {
+        let filter = AirportFilter.standard
         let sourceSHA = sha256(data)
         let content: CIFPContent
         do {
@@ -153,16 +156,17 @@ public enum NavDBBuilder {
         for fix in plan.airwayFixes {
             let r = fix.record
             try db.run("""
-                INSERT INTO airway_fix (area, route, seq, fix_ident, fix_region, fix_code, fix_id, description, route_type, level,
+                INSERT INTO airway_fix (area, route, segment, seq, fix_ident, fix_region, fix_code, fix_id, description, route_type, level,
                     direction, outbound_course_deg, outbound_course_true, inbound_course_deg, inbound_course_true,
-                    distance_nm, min_altitude_ft, max_altitude_ft, source_line)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, [.text(r.area), .text(r.route), .integer(Int64(r.sequence)), .text(r.fix.ident), .text(r.fix.region), .text(r.fix.code),
+                    distance_nm, min_altitude_ft, min_altitude2_ft, max_altitude_ft, source_line)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [.text(r.area), .text(r.route), .integer(Int64(fix.segment)), .integer(Int64(r.sequence)), .text(r.fix.ident), .text(r.fix.region), .text(r.fix.code),
                       SQLiteValue(fix.fixID), .text(r.descriptionCode), .text(String(r.routeType)), .text(trim(r.level)),
                       .text(trim(r.directionRestriction)), SQLiteValue(r.outboundCourse?.degrees),
                       SQLiteValue(r.outboundCourse.map { $0.isTrue }.map { $0 ? 1 : 0 } as Int?),
                       SQLiteValue(r.inboundCourse?.degrees), SQLiteValue(r.inboundCourse.map { $0.isTrue ? 1 : 0 } as Int?),
-                      SQLiteValue(r.distanceNM), SQLiteValue(r.minimumAltitudeFt), SQLiteValue(r.maximumAltitudeFt),
+                      SQLiteValue(r.distanceNM), SQLiteValue(r.minimumAltitudeFt), SQLiteValue(r.minimumAltitude2Ft),
+                      SQLiteValue(r.maximumAltitudeFt),
                       .integer(Int64(r.line))])
         }
 
@@ -200,12 +204,13 @@ public enum NavDBBuilder {
         case .runway(let r):
             try db.run("""
                 INSERT INTO runway (fix_id, length_ft, width_ft, bearing_deg, bearing_true, threshold_elevation_ft,
-                    displaced_threshold_ft, tch_ft, localizer, localizer_category, second_localizer)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    displaced_threshold_ft, tch_ft, localizer, localizer_category, second_localizer, second_localizer_category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, [.integer(id), .integer(Int64(r.lengthFt)), SQLiteValue(r.widthFt), SQLiteValue(r.bearing?.degrees),
                       SQLiteValue(r.bearing.map { $0.isTrue ? 1 : 0 } as Int?), SQLiteValue(r.thresholdElevationFt), SQLiteValue(r.displacedThresholdFt),
                       SQLiteValue(r.thresholdCrossingHeightFt), SQLiteValue(r.localizer),
-                      SQLiteValue(r.localizerCategory.map(String.init)), SQLiteValue(r.secondLocalizer)])
+                      SQLiteValue(r.localizerCategory.map(String.init)), SQLiteValue(r.secondLocalizer),
+                      SQLiteValue(r.secondLocalizerCategory.map(String.init))])
         case .localizer(let r):
             try db.run("""
                 INSERT INTO ils (fix_id, category, frequency_mhz, runway, course_deg, course_true, gs_lat, gs_lon,

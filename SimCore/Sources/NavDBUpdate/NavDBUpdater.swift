@@ -47,6 +47,7 @@ public actor NavDBUpdater {
             return .upToDate(active)
         }
         let fileURL = try manifest.fileURL(relativeTo: manifestURL)
+        store.removeUnusableFiles()
         let temporary = try await download(fileURL)
         try store.install(temporary, manifest: manifest)
         return .installed(manifest.identity)
@@ -75,9 +76,9 @@ public actor NavDBUpdater {
         do {
             let (location, response) = try await session.download(from: url)
             try Self.check(response, url)
-            // The system deletes `location` after this call. The file goes to the store directory.
+            // `location` is a temporary file of URLSession. It is moved to the store directory at once.
             try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
-            let temporary = store.directory.appendingPathComponent("download-\(UUID().uuidString).sqlite")
+            let temporary = store.directory.appendingPathComponent("\(NavDBStore.downloadPrefix)\(UUID().uuidString).sqlite")
             try FileManager.default.moveItem(at: location, to: temporary)
             return temporary
         } catch let error as NavDBUpdateError {

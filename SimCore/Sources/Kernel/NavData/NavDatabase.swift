@@ -44,8 +44,8 @@ public protocol NavDatabase: Sendable {
     func procedures(airport: String, kind: NavProcedureKind?) throws(NavDataError) -> [NavProcedure]
     /// Legs of one route of a procedure, ordered by sequence number.
     func legs(transitionID: Int64) throws(NavDataError) -> [NavProcedureLeg]
-    /// Fixes of all airways with this name, ordered by area and then by sequence number.
-    /// Each area is a separate airway (`NavAirwayFix.area`).
+    /// Fixes of all airways with this name, ordered by segment and then by sequence number.
+    /// Each segment (`NavAirwayFix.segment`) is a continuous airway.
     func airway(_ route: String) throws(NavDataError) -> [NavAirwayFix]
     /// Fixes inside a circle, for the map of the ND. Ordered by distance from the center, then by row.
     /// `kinds` limits the result to these kinds. All kinds when it is empty.

@@ -6,7 +6,8 @@ import Foundation
 /// The application then uses the database from the application bundle until a file with the new version is loaded.
 public enum NavDBSchema {
     ///
-    /// History: 1 — first version. 2 — `airway_fix.area`.
+    /// History: 1 — first version. 2 — `airway_fix.area`, `airway_fix.segment`, `airway_fix.min_altitude2_ft`,
+    /// `runway.second_localizer_category`.
     public static let version = 2
 
     /// Keys of the table `meta`.
@@ -75,7 +76,8 @@ public enum NavDBSchema {
         tch_ft INTEGER,
         localizer TEXT,
         localizer_category TEXT,
-        second_localizer TEXT
+        second_localizer TEXT,
+        second_localizer_category TEXT
     );
 
     CREATE TABLE ils (
@@ -118,6 +120,7 @@ public enum NavDBSchema {
         id INTEGER PRIMARY KEY,
         area TEXT NOT NULL,            -- ARINC 424 area code: USA, CAN, PAC, LAM
         route TEXT NOT NULL,
+        segment INTEGER NOT NULL,      -- continuous part of the airway, 1-based for each route
         seq INTEGER NOT NULL,
         fix_ident TEXT NOT NULL,
         fix_region TEXT NOT NULL,
@@ -133,10 +136,11 @@ public enum NavDBSchema {
         inbound_course_true INTEGER,
         distance_nm REAL,
         min_altitude_ft INTEGER,
+        min_altitude2_ft INTEGER,
         max_altitude_ft INTEGER,
         source_line INTEGER NOT NULL
     );
-    CREATE INDEX airway_fix_route ON airway_fix(route, area, seq);
+    CREATE INDEX airway_fix_route ON airway_fix(route, segment, seq);
 
     CREATE TABLE procedure (
         id INTEGER PRIMARY KEY,

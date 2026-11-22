@@ -67,7 +67,7 @@ public struct VerifyReport: Sendable, Codable, Equatable {
 /// so an airport that the converter lost is found.
 public enum NavDBVerifier {
     public static func verify(cifp data: Data, database: NavDatabaseReader, sampleSize: Int = 20,
-                              minimumRunwayFt: Int = 5000) throws(NavDataError) -> VerifyReport {
+                              minimumRunwayFt: Int = AirportFilter.standard.minimumRunwayFt) throws(NavDataError) -> VerifyReport {
         let lines = rawLines(data)
         let databaseAirports = try database.query { db throws(SQLiteError) in
             try db.rows("SELECT ident FROM fix WHERE kind = 'airport' ORDER BY ident") { $0.text(0) }

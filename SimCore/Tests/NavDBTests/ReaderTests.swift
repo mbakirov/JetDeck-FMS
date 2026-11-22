@@ -67,6 +67,7 @@ func copyOfSample() throws -> String {
     #expect(rw04L.lengthFt == 12079)
     #expect(rw04L.bearing == NavCourse(degrees: 44, isTrue: false))
     #expect(rw04L.localizerIdent == "IHIQ")
+    #expect(rw04L.secondLocalizerIdent == nil)
     #expect(rw04L.fix.airport == "KJFK")
 
     let localizers = try reader.localizers(airport: "KJFK")
@@ -162,8 +163,8 @@ func copyOfSample() throws -> String {
     }
     let fixes = try reader.airway(route)
     #expect(fixes.count >= 2)
-    for area in Set(fixes.map(\.area)) {
-        let sequences = fixes.filter { $0.area == area }.map(\.sequence)
+    for segment in Set(fixes.map(\.segment)) {
+        let sequences = fixes.filter { $0.segment == segment }.map(\.sequence)
         #expect(sequences == sequences.sorted())
     }
     #expect(fixes.allSatisfy { $0.fix.fix != nil })
@@ -171,14 +172,16 @@ func copyOfSample() throws -> String {
 }
 
 @Test func airwaysWithTheSameNameInTwoAreas() throws {
-    // V440 is in the CAN area (Alaska) and in the USA area. They are two airways.
+    // V440 is in the USA area (sequence 100-150) and in the CAN area (Alaska, 5100-5460). They share no fix,
+    // so they are two segments.
     let fixes = try sampleReader().airway("V440")
-    #expect(Set(fixes.map(\.area)) == ["CAN", "USA"])
-    #expect(fixes.map(\.area) == fixes.map(\.area).sorted())
-    for area in ["CAN", "USA"] {
-        let sequences = fixes.filter { $0.area == area }.map(\.sequence)
+    #expect(fixes.map(\.segment) == fixes.map(\.segment).sorted())
+    #expect(Set(fixes.filter { $0.segment == 1 }.map(\.area)) == ["USA"])
+    #expect(Set(fixes.filter { $0.segment == 2 }.map(\.area)) == ["CAN"])
+    for segment in Set(fixes.map(\.segment)) {
+        let sequences = fixes.filter { $0.segment == segment }.map(\.sequence)
         #expect(sequences == sequences.sorted())
-        #expect(Set(sequences).count == sequences.count, "\(area)")
+        #expect(Set(sequences).count == sequences.count)
     }
 }
 

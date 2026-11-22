@@ -80,6 +80,33 @@ public struct NavDBStore: Sendable {
         return bundled.builderVersion > downloaded.builderVersion
     }
 
+    /// Deletes files that can never be used: temporary downloads (`download-*.sqlite`) left by a stopped update,
+    /// and a downloaded database that the reader rejects (another schema version, or a damaged file).
+    /// The application calls it at start; `NavDBUpdater.update` calls it before a download.
+    /// A reader that has the file open keeps working: the file is deleted from the directory only.
+    /// Returns the names of the deleted files.
+    @discardableResult
+    public func removeUnusableFiles() -> [String] {
+        var removed: [String] = []
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for name in names.sorted() where name.hasPrefix(Self.downloadPrefix) && name.hasSuffix(".sqlite") {
+            if (try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))) != nil { removed.append(name) }
+        }
+        if FileManager.default.fileExists(atPath: downloadedURL.path) {
+            do {
+                _ = try NavDatabaseReader(path: downloadedURL.path)
+            } catch .schemaMismatch, .invalid {
+                if (try? FileManager.default.removeItem(at: downloadedURL)) != nil { removed.append(downloadedURL.lastPathComponent) }
+            } catch {
+                // A storage error can be temporary. The file stays.
+            }
+        }
+        return removed
+    }
+
+    /// Name prefix of a temporary download in `directory`.
+    static let downloadPrefix = "download-"
+
     /// Identity of the database that `openActive` gives now, or nil.
     public func activeIdentity() -> NavDataIdentity? {
         try? openActive().reader.info

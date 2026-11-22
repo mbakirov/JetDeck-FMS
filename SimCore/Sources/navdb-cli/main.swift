@@ -8,8 +8,8 @@ import SimCoreContract
 
 let usage = """
 usage:
-  navdb-cli convert --cifp <FAACIFP18> --out <navdb.sqlite> [--report <report.json>] [--min-runway <ft>]
-  navdb-cli verify --cifp <FAACIFP18> --db <navdb.sqlite> [--report <verify.json>] [--sample <N>] [--min-runway <ft>]
+  navdb-cli convert --cifp <FAACIFP18> --out <navdb.sqlite> [--report <report.json>]
+  navdb-cli verify --cifp <FAACIFP18> --db <navdb.sqlite> [--report <verify.json>] [--sample <N>]
   navdb-cli bench --db <navdb.sqlite> [--radius <NM>] [--repeat <N>] [--out <report.json>] [--max-p99-ms <ms>]
   navdb-cli manifest --db <navdb.sqlite> --url <file URL in the manifest> --out <manifest.json> [--notices <notices.json>]
   navdb-cli extract-sample --cifp <FAACIFP18> --airports <K1,K2,...> --out <sample file>
@@ -68,10 +68,9 @@ func writeJSON<T: Encodable>(_ value: T, to path: String) throws {
 func convert(_ arguments: Arguments) throws -> Int32 {
     let cifpPath = try arguments.required("cifp")
     let output = try arguments.required("out")
-    let filter = AirportFilter(minimumRunwayFt: try arguments.number("min-runway", default: 5000))
     try FileManager.default.createDirectory(at: URL(fileURLWithPath: output).deletingLastPathComponent(), withIntermediateDirectories: true)
     let report = try NavDBBuilder.build(cifp: read(cifpPath), sourceFileName: URL(fileURLWithPath: cifpPath).lastPathComponent,
-                                        output: output, filter: filter)
+                                        output: output)
     if let path = arguments.options["report"] {
         try writeJSON(report, to: path)
     }
@@ -87,8 +86,7 @@ func verify(_ arguments: Arguments) throws -> Int32 {
     let reader = try NavDatabaseReader(path: arguments.required("db"))
     try reader.checkIntegrity()
     let report = try NavDBVerifier.verify(cifp: read(arguments.required("cifp")), database: reader,
-                                          sampleSize: try arguments.number("sample", default: 20),
-                                          minimumRunwayFt: try arguments.number("min-runway", default: 5000))
+                                          sampleSize: try arguments.number("sample", default: 20))
     if let path = arguments.options["report"] {
         try writeJSON(report, to: path)
     }

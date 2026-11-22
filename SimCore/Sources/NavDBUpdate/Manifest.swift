@@ -35,7 +35,7 @@ public enum NavDBUpdateError: Error, Sendable, Equatable, LocalizedError {
 ///
 /// ```json
 /// {"format":1,"schemaVersion":2,"builderVersion":2,"cycle":"2611","effective":"2026-10-29","lastDay":"2026-11-25",
-///  "url":"navdb-2611.sqlite","sizeBytes":22126592,"sha256":"…","sourceSHA256":"…","notices":[]}
+///  "url":"navdb-2611.sqlite","sizeBytes":22114304,"sha256":"…","sourceSHA256":"…","notices":[]}
 /// ```
 public struct NavDBManifest: Sendable, Codable, Equatable {
     /// Version of this manifest format.
