@@ -1,0 +1,44 @@
+# The full check of the repository (CLAUDE.md): build, layer rule, tests, step timing.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Swift 6.2 and the macOS 26 SDK are necessary (Package.swift).
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          xcode="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          swift --version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: SimCore/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('SimCore/Package.swift', 'SimCore/Package.resolved') }}-${{ github.sha }}
+          restore-keys: spm-${{ runner.os }}-${{ hashFiles('SimCore/Package.swift', 'SimCore/Package.resolved') }}-
+
+      - name: make check
+        run: make check
+
+      - name: Upload step timing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step-timing
+          path: build/reports/
+          if-no-files-found: ignore
