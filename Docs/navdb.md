@@ -126,7 +126,7 @@ FAACIFP18 ──navdb-cli convert──► navdb-<cycle>.sqlite ──verify, be
 
 Условие FAA: получатель CIFP сообщает своим пользователям об ошибках в данных.
 
-**Ответственный:** владелец продукта JetDeck FMS. Он может назначить другого человека, тогда эту строку нужно изменить.
+**Ответственный:** Marat Bakirov.
 
 **Источники сведений об ошибках**
 
@@ -162,7 +162,7 @@ FAACIFP18 ──navdb-cli convert──► navdb-<cycle>.sqlite ──verify, be
 | Новая база загружается без нового выпуска | тест `newDatabaseIsInstalledAndUsed` |
 | Неверная контрольная сумма отклоняется, остаётся прежняя база | тест `fileWithWrongChecksumIsRejected` |
 | Номер и даты цикла для MCDU | `NavDatabase.cycle`; тест `identityAndCycleForTheMCDU` |
-| Процесс уведомления об ошибках и ответственный | раздел выше |
+| Процесс уведомления об ошибках и ответственный | раздел выше; ответственный Marat Bakirov |
 
 ## Открыто
 
