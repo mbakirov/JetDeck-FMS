@@ -1,0 +1,2 @@
+# CIFP samples keep the original line ends (CR LF) of the FAA file.
+SimCore/Tests/Fixtures/*.txt -text

@@ -1,0 +1,47 @@
+# Draft. The navigation database of an AIRAC cycle: download, convert, check, measure, manifest.
+# The result is a build artifact. Publication is not here yet: the storage of the database is not selected.
+# See Docs/navdb.md.
+name: navdb-cycle
+
+on:
+  schedule:
+    # Each Thursday. AIRAC cycles start on a Thursday; the FAA publishes the next cycle before it starts.
+    - cron: "0 6 * * 4"
+  workflow_dispatch:
+    inputs:
+      airac:
+        description: "Cycle: current or next"
+        required: true
+        default: next
+        type: choice
+        options: [current, next]
+
+jobs:
+  navdb:
+    # Swift 6.2 and the macOS 26 SDK are necessary (Package.swift).
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      AIRAC: ${{ inputs.airac || 'next' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          xcode="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - name: Download, convert, verify, measure, write manifest
+        run: make navdb-cycle
+
+      - name: Upload the database, manifest and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: navdb-${{ env.AIRAC }}
+          path: |
+            build/navdb/*.sqlite
+            build/navdb/manifest.json
+            build/reports/navdb-*.json
+          retention-days: 90

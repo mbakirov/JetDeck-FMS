@@ -104,12 +104,19 @@ func waitUntil(timeout: Double = 5, _ condition: () -> Bool) -> Bool {
 @Test func runnerRunsNearRealTime() {
     let engine = SimEngine(initial: testInitial)
     let runner = SimRunner(core: engine)
+    let clock = ContinuousClock()
+    let start = clock.now
     runner.start()
     Thread.sleep(forTimeInterval: 0.5)
     runner.stop()
-    // 0.5 s is 25 steps. The limits are wide because the test machine can be busy.
-    let steps = engine.latestSnapshot.step
-    #expect(steps >= 12 && steps <= 27, "steps: \(steps)")
+    // The limits use the measured time, not 0.5 s: a busy machine (CI) can sleep longer than asked.
+    // The runner is near real time: not more steps than the time allows (+2 for the first and the last step),
+    // and not less than half of them.
+    let elapsed = clock.now - start
+    let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+    let allowed = seconds / simStepSeconds
+    let steps = Double(engine.latestSnapshot.step)
+    #expect(steps >= allowed / 2 && steps <= allowed + 2, "steps: \(steps), time: \(seconds) s")
 }
 
 @Test func runnerCanStartAgainAfterStop() {

@@ -28,28 +28,37 @@ public struct FlightRecording: Sendable, Codable, Equatable {
     public var stepCount: UInt64
     /// Events in the order of application. `step` is the step that applied the event (1 is the first step).
     public var events: [RecordedEvent]
+    /// The navigation database of the flight. Nil when the flight had no database.
+    /// A replay needs the same database: other data can give other snapshots.
+    public var navData: NavDataIdentity?
 
     public init(
         schemaVersion: Int = contractSchemaVersion,
         initial: InitialConditions,
         stepCount: UInt64,
-        events: [RecordedEvent]
+        events: [RecordedEvent],
+        navData: NavDataIdentity? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.initial = initial
         self.stepCount = stepCount
         self.events = events
+        self.navData = navData
     }
 }
 
 public enum RecordingError: Error, Equatable, LocalizedError {
     case schemaVersionMismatch(found: Int, expected: Int)
+    /// The replay has another navigation database than the recorded flight.
+    case navDataMismatch(recorded: NavDataIdentity?, given: NavDataIdentity?)
     case malformed(String)
 
     public var errorDescription: String? {
         switch self {
         case .schemaVersionMismatch(let found, let expected):
             "Recording has contract version \(found). This build supports version \(expected). The recording cannot be replayed."
+        case .navDataMismatch(let recorded, let given):
+            "Recording needs the navigation database \(recorded.map(\.description) ?? "none"). The replay has \(given.map(\.description) ?? "none")."
         case .malformed(let reason):
             "Recording is not valid: \(reason)"
         }

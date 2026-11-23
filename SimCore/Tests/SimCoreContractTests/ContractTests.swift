@@ -142,8 +142,8 @@ func richSnapshot() -> Snapshot {
 
 @Test func versionIsCheckedBeforeTheOtherData() {
     // A future format can have other fields. The error must tell the version, not the missing field.
-    let data = Data(#"{"schemaVersion":2,"newFormat":true}"#.utf8)
-    #expect(throws: RecordingError.schemaVersionMismatch(found: 2, expected: contractSchemaVersion)) {
+    let data = Data(#"{"schemaVersion":\#(contractSchemaVersion + 1),"newFormat":true}"#.utf8)
+    #expect(throws: RecordingError.schemaVersionMismatch(found: contractSchemaVersion + 1, expected: contractSchemaVersion)) {
         try FlightRecording.load(from: data)
     }
 }

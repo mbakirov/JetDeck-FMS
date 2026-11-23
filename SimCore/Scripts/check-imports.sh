@@ -13,8 +13,14 @@ allowed() {
         Kernel) echo "SimCoreContract" ;;
         World|Sensors|FMS|AutoFlight|FBW|Aircraft|Warnings|Displays) echo "Kernel SimCoreContract" ;;
         SnapshotDiff) echo "SimCoreContract" ;;
+        # Navigation database (E02). SQLite3 and CryptoKit are system modules of Apple platforms.
+        ARINC424) echo "" ;;
+        NavDB) echo "Kernel SimCoreContract SQLite3" ;;
+        NavDBBuilder) echo "ARINC424 NavDB Kernel SimCoreContract CryptoKit" ;;
+        NavDBUpdate) echo "NavDB Kernel SimCoreContract CryptoKit" ;;
+        navdb-cli) echo "NavDBBuilder NavDBUpdate NavDB Kernel SimCoreContract" ;;
         SimCore) echo "SimCoreContract Kernel World Sensors FMS AutoFlight FBW Aircraft Warnings Displays" ;;
-        simcore-cli) echo "SimCore SnapshotDiff SimCoreContract" ;;
+        simcore-cli) echo "SimCore SnapshotDiff SimCoreContract NavDB Kernel" ;;
         *) echo "__unknown__" ;;
     esac
 }

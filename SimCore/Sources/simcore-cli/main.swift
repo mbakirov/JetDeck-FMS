@@ -1,4 +1,6 @@
 import Foundation
+import Kernel
+import NavDB
 import SimCore
 import SnapshotDiff
 
@@ -6,7 +8,7 @@ import SnapshotDiff
 
 let usage = """
 usage:
-  simcore-cli replay <recording.json> [--out <snapshots.jsonl>] [--every <N>]
+  simcore-cli replay <recording.json> [--out <snapshots.jsonl>] [--every <N>] [--navdb <navdb.sqlite>]
   simcore-cli diff <expected.jsonl> <actual.jsonl> [--tolerance <X>]
   simcore-cli bench [--steps <N>] [--out <report.json>]
   simcore-cli gen-recording --out <recording.json> [--steps <N>] [--events <N>] [--seed <N>]
@@ -61,7 +63,8 @@ func write(_ data: Data, to path: String) throws {
 func replay(_ arguments: Arguments) throws {
     let recording = try FlightRecording.load(from: read(arguments.positional(0, "recording.json")))
     let every: UInt64 = try arguments.number("every", default: 50)
-    let output = try Replayer.snapshotsJSONL(recording, every: every)
+    let navData: any NavDatabase = try arguments.options["navdb"].map { try NavDatabaseReader(path: $0) } ?? EmptyNavDatabase()
+    let output = try Replayer.snapshotsJSONL(recording, every: every, navData: navData)
     if let path = arguments.options["out"] {
         try write(output, to: path)
         print("Replayed \(recording.stepCount) steps, \(recording.events.count) events. Snapshots: \(path)")
