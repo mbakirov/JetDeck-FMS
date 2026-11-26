@@ -190,3 +190,8 @@ public struct MagneticModel: Sendable {
         field(at: point, heightM: heightM, decimalYear: decimalYear).declinationDeg
     }
 }
+
+extension MagneticModel {
+    /// The magnetic model of the core.
+    public static var current: MagneticModel { wmm2025 }
+}

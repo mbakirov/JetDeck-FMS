@@ -39,9 +39,15 @@ var targets: [Target] = [
     ),
 ]
 
+/// Test targets of the modules can use more than the module. World tests build a navigation database (E03).
+let extraTestDependencies: [String: [Target.Dependency]] = ["World": ["NavDB", "NavDBBuilder"]]
+
 for module in modules {
     targets.append(.target(name: module, dependencies: ["Kernel", "SimCoreContract"]))
-    targets.append(.testTarget(name: "\(module)Tests", dependencies: [.init(stringLiteral: module), "Kernel"]))
+    targets.append(.testTarget(
+        name: "\(module)Tests",
+        dependencies: [.init(stringLiteral: module), "Kernel"] + (extraTestDependencies[module] ?? [])
+    ))
 }
 
 let package = Package(
