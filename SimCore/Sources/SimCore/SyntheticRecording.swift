@@ -23,11 +23,23 @@ public enum SyntheticRecording {
         let ordered = events.enumerated()
             .sorted { ($0.element.step, $0.offset) < ($1.element.step, $1.offset) }
             .map(\.element)
+        // An approach to KJFK: 20 NM south-west of the airport at 3000 ft.
         let initial = InitialConditions(
             scenarioID: scenarioID,
             settings: CoreSettings(radioHeightCallouts: [100, 50, 40, 30, 20, 10]),
+            utcStartDate: UTCDate(year: 2026, month: 6, day: 15),
             utcStartSecondsOfDay: 12 * 3600,
-            seed: seed
+            seed: seed,
+            aircraft: InitialAircraft(position: GeoPoint(latDeg: 40.42, lonDeg: -74.05), altitudeFt: 3000),
+            destinationAirport: "KJFK",
+            weather: WeatherConditions(
+                qnhHPa: 1008,
+                isaDeviationC: 5,
+                windLayers: [
+                    WindLayer(altitudeFt: 0, directionDeg: 220, speedKt: 10),
+                    WindLayer(altitudeFt: 5000, directionDeg: 250, speedKt: 25),
+                ]
+            )
         )
         return FlightRecording(initial: initial, stepCount: steps, events: ordered)
     }

@@ -19,6 +19,12 @@ public struct SimState: Sendable, Equatable {
     public var scenario: ScenarioStatus = .blank
 
     public init() {}
+
+    /// The state at step 0.
+    public init(initial: InitialConditions) {
+        self.init()
+        aircraft = AircraftState(initial: initial.aircraft)
+    }
 }
 
 extension SimState {
@@ -28,7 +34,7 @@ extension SimState {
             schemaVersion: contractSchemaVersion,
             step: context.step,
             simTimeSeconds: context.simTimeSeconds,
-            utcSecondsOfDay: (context.initial.utcStartSecondsOfDay + Int(context.simTimeSeconds)) % 86_400,
+            utcSecondsOfDay: UTCTime(context: context).secondsOfDay,
             pfd: displays.pfd,
             nd: displays.nd,
             ewd: displays.ewd,

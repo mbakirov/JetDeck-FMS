@@ -18,8 +18,9 @@
 | Цель | Назначение |
 |---|---|
 | `SimCoreContract` | Типы событий и снимка, запись полёта, JSON |
-| `Kernel` | Шина состояния `SimState`, протокол `SimModule`, `StepContext` |
-| `World`, `Sensors`, `FMS`, `AutoFlight`, `FBW`, `Aircraft`, `Warnings`, `Displays` | Модули симуляции. В E01 это заглушки |
+| `Kernel` | Шина состояния `SimState`, протокол `SimModule`, `StepContext`. Общие функции мира в `Kernel/Earth` |
+| `CGeodesic` | `geodesic.c` из GeographicLib-C (MIT) без изменений. Его вызывает только `Kernel/Earth/Geodesy` |
+| `World`, `Sensors`, `FMS`, `AutoFlight`, `FBW`, `Aircraft`, `Warnings`, `Displays` | Модули симуляции. World сделан в E03, остальные пока заглушки |
 | `SimCore` | Фасад `SimEngine`, внешний цикл `SimRunner`, повтор записи `Replayer` |
 | `SnapshotDiff` | Сравнение снимков с допуском |
 | `simcore-cli` | Команды `replay`, `diff`, `bench`, `gen-recording`, `golden-update` |
@@ -30,6 +31,8 @@
 | `NavDBUpdate` | Загрузка новой базы: манифест, SHA-256, замена файла, выбор базы, уведомления |
 
 Навигационная база описана в `Docs/navdb.md`. Протокол `NavDatabase` и типы данных лежат в `Kernel/NavData`. Модули симуляции видят только их, а не `NavDB`.
+
+Модель мира описана в `Docs/world.md`. Геодезия WGS-84, атмосфера ISA с QNH, пересчёт CAS/TAS, ветер и склонение WMM2025 лежат в `Kernel/Earth`. Ими пользуются все модули. Формулы работают в единицах СИ, перевод в ft, kt и hPa даёт `Units`.
 
 ## Правила ядра
 

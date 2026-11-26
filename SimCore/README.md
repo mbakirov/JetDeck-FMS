@@ -27,6 +27,7 @@ SnapshotDiff ──────────────► SimCoreContract
 
 - A simulation module imports only `Kernel` and `SimCoreContract`. `make lint-imports` checks this rule.
 - `Kernel` has the state bus `SimState`. Each section of the state has one writer.
+- `Kernel/Earth` has the functions of the world that all modules use: WGS-84 geodesy (on `CGeodesic`, GeographicLib-C), the ISA atmosphere with QNH, air data, wind and the WMM2025 magnetic model. See `Docs/world.md`.
 - The step order is fixed: input, World, Sensors, FMS, AutoFlight, FBW, Aircraft, Warnings, Displays, snapshot.
 
 ## Commands

@@ -7,7 +7,9 @@ let modules = ["World", "Sensors", "FMS", "AutoFlight", "FBW", "Aircraft", "Warn
 
 var targets: [Target] = [
     .target(name: "SimCoreContract"),
-    .target(name: "Kernel", dependencies: ["SimCoreContract"]),
+    // Geodesic routines of GeographicLib-C (MIT). Only Kernel uses them. See Sources/CGeodesic/README.md.
+    .target(name: "CGeodesic", exclude: ["README.md", "LICENSE.txt"]),
+    .target(name: "Kernel", dependencies: ["SimCoreContract", "CGeodesic"]),
     .target(name: "SnapshotDiff", dependencies: ["SimCoreContract"]),
     .target(
         name: "SimCore",
@@ -37,9 +39,15 @@ var targets: [Target] = [
     ),
 ]
 
+/// Test targets of the modules can use more than the module. World tests build a navigation database (E03).
+let extraTestDependencies: [String: [Target.Dependency]] = ["World": ["NavDB", "NavDBBuilder"]]
+
 for module in modules {
     targets.append(.target(name: module, dependencies: ["Kernel", "SimCoreContract"]))
-    targets.append(.testTarget(name: "\(module)Tests", dependencies: [.init(stringLiteral: module), "Kernel"]))
+    targets.append(.testTarget(
+        name: "\(module)Tests",
+        dependencies: [.init(stringLiteral: module), "Kernel"] + (extraTestDependencies[module] ?? [])
+    ))
 }
 
 let package = Package(

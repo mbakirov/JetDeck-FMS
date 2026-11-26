@@ -15,7 +15,8 @@ public let simStepSeconds: Double = 0.02
 /// Recordings with a different version cannot be replayed.
 ///
 /// History: 1 — E01. 2 — E02: a recording has the identity of the navigation database (`FlightRecording.navData`).
-public let contractSchemaVersion: Int = 2
+/// 3 — E03: the initial conditions have the UTC date, the aircraft position, the destination airport and the weather.
+public let contractSchemaVersion: Int = 3
 
 // MARK: - Facade
 

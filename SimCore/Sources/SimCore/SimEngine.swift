@@ -20,7 +20,7 @@ import World
 public final class SimEngine: SimCoreProtocol {
     private struct StepState: Sendable {
         var step: UInt64 = 0
-        var state = SimState()
+        var state: SimState
         var modules: [any SimModule]
         var journal: [RecordedEvent] = []
     }
@@ -43,13 +43,13 @@ public final class SimEngine: SimCoreProtocol {
         self.initial = initial
         self.navData = navData
         self.latest = Mutex(Snapshot.initial(initial))
-        self.stepState = Mutex(StepState(modules: modules))
+        self.stepState = Mutex(StepState(state: SimState(initial: initial), modules: modules))
     }
 
     /// The modules in the order of the step.
     static func standardModules(navData: any NavDatabase = EmptyNavDatabase()) -> [any SimModule] {
         [
-            WorldModule(),
+            WorldModule(navData: navData),
             SensorsModule(),
             FMSModule(navData: navData),
             AutoFlightModule(),
