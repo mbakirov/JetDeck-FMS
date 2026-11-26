@@ -10,7 +10,9 @@ SYSTEM="Foundation Synchronization"
 allowed() {
     case "$1" in
         SimCoreContract) echo "" ;;
-        Kernel) echo "SimCoreContract" ;;
+        Kernel) echo "SimCoreContract CGeodesic" ;;
+        # C code of GeographicLib (E03). It has no Swift files.
+        CGeodesic) echo "" ;;
         World|Sensors|FMS|AutoFlight|FBW|Aircraft|Warnings|Displays) echo "Kernel SimCoreContract" ;;
         SnapshotDiff) echo "SimCoreContract" ;;
         # Navigation database (E02). SQLite3 and CryptoKit are system modules of Apple platforms.
@@ -40,6 +42,7 @@ for dir in */; do
         rest="${match#*:}"
         line="${rest%%:*}"
         # The module name is the first word after `import` (and after `struct`, `class`, ... if present).
+        # An access level (`internal import X`) comes before `import`.
         module="$(echo "${rest#*:}" | sed -E 's/^.*import[[:space:]]+((typealias|struct|class|enum|protocol|let|var|func)[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*).*$/\3/')"
         ok=0
         for name in $SYSTEM $permitted; do
@@ -49,7 +52,7 @@ for dir in */; do
             echo "Sources/$file:$line: forbidden import '$module' in target '$target'"
             failed=1
         fi
-    done < <(grep -rnE '^[[:space:]]*(@[A-Za-z_]+(\([^)]*\))?[[:space:]]+)*import[[:space:]]+' "$target" --include='*.swift' || true)
+    done < <(grep -rnE '^[[:space:]]*(@[A-Za-z_]+(\([^)]*\))?[[:space:]]+)*((public|package|internal|fileprivate|private)[[:space:]]+)?import[[:space:]]+' "$target" --include='*.swift' || true)
 done
 
 if [ "$failed" = 0 ]; then

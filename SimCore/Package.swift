@@ -7,7 +7,9 @@ let modules = ["World", "Sensors", "FMS", "AutoFlight", "FBW", "Aircraft", "Warn
 
 var targets: [Target] = [
     .target(name: "SimCoreContract"),
-    .target(name: "Kernel", dependencies: ["SimCoreContract"]),
+    // Geodesic routines of GeographicLib-C (MIT). Only Kernel uses them. See Sources/CGeodesic/README.md.
+    .target(name: "CGeodesic", exclude: ["README.md", "LICENSE.txt"]),
+    .target(name: "Kernel", dependencies: ["SimCoreContract", "CGeodesic"]),
     .target(name: "SnapshotDiff", dependencies: ["SimCoreContract"]),
     .target(
         name: "SimCore",
