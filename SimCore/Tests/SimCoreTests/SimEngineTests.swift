@@ -142,3 +142,11 @@ import Testing
     #expect(engine.latestSnapshot.utcSecondsOfDay == 12 * 3600 + 600)
     #expect(engine.recording() == recording)
 }
+
+@Test func initialStateHasTheAircraftOfTheInitialConditions() {
+    var initial = testInitial
+    initial.aircraft = InitialAircraft(position: GeoPoint(latDeg: 40.5, lonDeg: -73.9), altitudeFt: 10_000)
+    let state = SimState(initial: initial)
+    #expect(state.aircraft.position == GeoPoint(latDeg: 40.5, lonDeg: -73.9))
+    #expect(abs(state.aircraft.altitudeM - 3048) < 1e-9)
+}

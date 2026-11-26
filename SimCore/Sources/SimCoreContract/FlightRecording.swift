@@ -1,23 +1,5 @@
 import Foundation
 
-/// The state of the core before the first step.
-/// The same initial conditions and the same events always give the same snapshots.
-public struct InitialConditions: Sendable, Codable, Equatable {
-    public var scenarioID: String
-    public var settings: CoreSettings
-    /// UTC time at step 0, in seconds from midnight.
-    public var utcStartSecondsOfDay: Int
-    /// Seed for all random effects (wind, turbulence). The core has no other source of randomness.
-    public var seed: UInt64
-
-    public init(scenarioID: String, settings: CoreSettings, utcStartSecondsOfDay: Int, seed: UInt64) {
-        self.scenarioID = scenarioID
-        self.settings = settings
-        self.utcStartSecondsOfDay = utcStartSecondsOfDay
-        self.seed = seed
-    }
-}
-
 /// A full flight recording: the initial conditions and all input events.
 /// A replay of the recording gives the same snapshots as the original flight.
 public struct FlightRecording: Sendable, Codable, Equatable {
